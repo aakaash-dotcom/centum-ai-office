@@ -1,0 +1,6 @@
+timestamp,file,old_path,page1_read_as,gate_method,subject_verdict,gate_verdict,checked_by,notes
+2026-09-23T00:00Z,10_Science_Annual_2022_STATE.pdf,Question Papers/10th/Annual/2022/STATE,split from DGE SSLC_2022 bundle,text,Science,PASS,agent-B-prior,"split by page table 165-177; NOT yet re-verified under office gate"
+2026-09-23T00:00Z,10_Science_Annual_2023_STATE.pdf,Question Papers/10th/Annual/2023/STATE,split from DGE SSLC_2023 bundle,text,Science,PASS,agent-B-prior,"awaiting re-verification under office gate"
+2026-09-23T00:00Z,10_Science_Annual_2024_STATE.pdf,Question Papers/10th/Annual/2024/STATE,split from DGE SSLC_2024 bundle,text,Science,PASS,agent-B-prior,"awaiting re-verification under office gate"
+2026-09-23T00:00Z,10_Science_Annual_2025_STATE.pdf,Question Papers/10th/Annual/2025/STATE,split from DGE SSLC_2025 bundle,text,Science,PASS,agent-B-prior,"awaiting re-verification under office gate"
+2026-09-23T00:00Z,10_Science_Annual_2026_STATE.pdf,Question Papers/10th/Annual/2026/STATE,split from DGE SSLC_2026 bundle,text,Science,PASS,agent-B-prior,"page split 89-101; awaiting re-verification under office gate"

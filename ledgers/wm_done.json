@@ -1,0 +1,17 @@
+{
+  "_note": "Watermark job state. Replaces the wiped papers/wm_done.json. Written by the FACTORY lane (agent-04).",
+  "jobs": [
+    {
+      "job": "class8-quarterly-wm",
+      "target": "Question Papers/8th/Quarterly/*",
+      "direction": "BL->TR",
+      "opacity": 0.17,
+      "angle_fixed_on": "2026-09-16",
+      "batches": [
+        { "range": "1-98", "status": "done-pre-fix", "needs_recheck": true, "reason": "angle was negative before 2026-09-16" },
+        { "range": "99-444", "status": "not_started", "resume_index": 99 }
+      ],
+      "standing": "PAUSED during the 2026-09-22 freeze. Do not resume without owner GO."
+    }
+  ]
+}

@@ -1,0 +1,264 @@
+{
+  "office_name": "CENTUM AI Office",
+  "last_updated": "2026-09-23T14:04:39Z",
+  "freeze": {
+    "active": true,
+    "ordered_by": "owner",
+    "since": "2026-09-22",
+    "text": "HARVEST FROZEN. No uploads, no Drive restructure, no deletes.",
+    "lifts_on": "owner says GO in the manager chat",
+    "allowed_while_frozen": [
+      "tool building with no Drive writes (TASK-001)",
+      "reading Drive",
+      "writing to this repository"
+    ]
+  },
+  "manager": {
+    "status": "ACTIVE",
+    "last_run": "2026-09-23T14:04:39Z",
+    "next_action": "PLANNING PHASE. Pixel office built (rooms, lights, sleeping agents, replaceable stations) and round-1 tasks archived. Next: agree the fresh plan with the owner, then open the Harvest room with new tasks and (later) the Marketing room."
+  },
+  "existing_work_summary": {
+    "inherited_from": "5-agent team, 16-23 Sep 2026 (Agent B debrief)",
+    "drive_folders_created": true,
+    "resources_collected": "DGE all-subject public-exam bundles in the workspace (SSLC 2022-2026, HSE1 2024-2026, HSE2 2023-2026, which persist by policy); SSLC Science split 2022-2026 as STATE files on Drive; district quarterly dumps classes 6-9 (untrusted); old branded A5/2UP/Print-Ready library for classes 8-12 (subject trust unknown); one diagram PDF in the new StudyHub tree",
+    "files_completed": "5 high-trust files (SSLC Science Annual STATE 2022-2026, split from DGE bundles, md5 logged) + 1 delivered-but-not-to-spec diagram PDF. Everything else is unverified.",
+    "techniques_established": [
+      "Drive Apps Script bridge (drive_upload.py / bridge.py) - works, text/plain + 180s + replace-verify pattern",
+      "wmclean.py layer-1 vector third-party watermark strip (PDF_REDACT_IMAGE_NONE|LINE_ART_NONE)",
+      "wm_apply.py own diagonal watermark BL->TR, opacity 0.17, vector overlay",
+      "DGE bundle splitting by year-specific page tables",
+      "md5 duplicate control against COLLECT_LOG.csv",
+      "qc_scan.py string-literal screening (NOT OCR, NOT a subject gate)",
+      "Namma Kalvi crawler harvest.py (guides only, not a PYQ path)",
+      "2-up A4 / booklet imposition (qp_2up.py - currently broken, depends on a wiped papers/ tree)"
+    ],
+    "known_failures": [
+      "No page-1 subject gate - Tamil papers were filed as Science (root cause of the freeze)",
+      "Listing titles trusted as subject evidence (padasalai HTML harvest)",
+      "Two competing Drive skeletons at once (*_A5 + Print-Ready + 2UP beside STATE + District + Unknown)",
+      "185 'unique Science originals' - count never verified as subjects",
+      "Class 8 watermark run stalled at 98/444, files 1-98 use the wrong pre-2026-09-16 angle",
+      "Diagram PDF shipped with a wrong DNA base-pair label",
+      "Work stored in the workspace where the snapshot wipes PDFs; watermark ledger lived in a wiped papers/ tree",
+      "Three contradictory org charts; website catalogue.json never received a READY file"
+    ]
+  },
+  "stats": {
+    "tasks_in_queue": 0,
+    "tasks_active": 0,
+    "tasks_in_review": 0,
+    "tasks_done_today": 0,
+    "tasks_done_total": 0,
+    "files_produced_total": 6,
+    "files_produced_total_note": "6 files carried in from the previous team: 5 x SSLC Science Annual STATE 2022-2026 (high trust, awaiting office gate confirmation) + 1 diagram PDF (not to spec). 0 files produced by this office so far.",
+    "agents_active": 0,
+    "agents_total": 5,
+    "tasks_archived": 20,
+    "tasks_archived_note": "round-1 task files parked in tasks/archive/2026-09-23-round1/ pending the new plan"
+  },
+  "departments": {
+    "content": {
+      "name": "Content Production",
+      "overview": "departments/content/overview.md",
+      "status_legend": "STAGED = role and task assigned, waiting for owner GO (freeze). ACTIVE = working now. REVIEW = agent says done, manager verifying. BLOCKED = needs something. IDLE = went quiet. DONE = approved, ready for next task.",
+      "slots": {
+        "agent-01": {
+          "status": "STAGED",
+          "role": "PYQ - gated public question papers",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T13:35Z | STAGED | slot created by Manager; role PYQ",
+          "last_log_time": "2026-09-23T13:35Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [
+            "TASK-003",
+            "TASK-004",
+            "TASK-005",
+            "TASK-006",
+            "TASK-007",
+            "TASK-019"
+          ],
+          "occupant": {
+            "id": "agent-01",
+            "generation": 1,
+            "since": "2026-09-23T13:35:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned — planning phase"
+        },
+        "agent-02": {
+          "status": "STAGED",
+          "role": "MODEL - model papers and answer keys",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T13:35Z | STAGED | slot created by Manager; role MODEL",
+          "last_log_time": "2026-09-23T13:35Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [
+            "TASK-017"
+          ],
+          "occupant": {
+            "id": "agent-02",
+            "generation": 1,
+            "since": "2026-09-23T13:35:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned — planning phase"
+        },
+        "agent-03": {
+          "status": "STAGED",
+          "role": "ONEWORD/QBANK - one-word banks, MCQ JSON, notes",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T13:35Z | STAGED | slot created by Manager; role ONEWORD/QBANK",
+          "last_log_time": "2026-09-23T13:35Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [
+            "TASK-010",
+            "TASK-013",
+            "TASK-014",
+            "TASK-015",
+            "TASK-016"
+          ],
+          "occupant": {
+            "id": "agent-03",
+            "generation": 1,
+            "since": "2026-09-23T13:35:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned — planning phase"
+        },
+        "agent-04": {
+          "status": "STAGED",
+          "role": "FACTORY - branding, watermark, A5, 2-up, print",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T13:35Z | STAGED | slot created by Manager; role FACTORY",
+          "last_log_time": "2026-09-23T13:35Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [
+            "TASK-012"
+          ],
+          "occupant": {
+            "id": "agent-04",
+            "generation": 1,
+            "since": "2026-09-23T13:35:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned — planning phase"
+        },
+        "agent-05": {
+          "status": "STAGED",
+          "role": "QA/CENTUM - page-1 gate, audits, test player",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T13:35Z | STAGED | slot created by Manager; role QA/CENTUM",
+          "last_log_time": "2026-09-23T13:35Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [
+            "TASK-018",
+            "TASK-020"
+          ],
+          "occupant": {
+            "id": "agent-05",
+            "generation": 1,
+            "since": "2026-09-23T13:35:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned — planning phase"
+        }
+      }
+    }
+  },
+  "shelves": {
+    "free": "gated public PYQ + model papers + model answer keys",
+    "topper": "one-word banks, chapter Q-banks, notes (complete/topper/last-minute), slow-learner packs - UI shows boxes, never dumped into All",
+    "centum": "MCQ test player, live class, recordings, NotebookLM videos - checkout BLOCKED until one test opens and one recording opens"
+  },
+  "external_lanes": {
+    "website_qwen": {
+      "owns": "catalogue.json, StudyHub UI, chips, checkout",
+      "rule": "no agent in this office edits catalogue.json; the handover is reports/READY_MANIFEST.md",
+      "status": "waiting for first READY manifest (TASK-020)"
+    }
+  },
+  "parked": [
+    "11th/12th public-paper harvest (owner's park stands; HSE splits already logged are not to be extended)",
+    "classes 1-7 and CBSE (grey until files exist)",
+    "Centum checkout (needs one working test + one recording)"
+  ],
+  "virtual_office": {
+    "app": "app/",
+    "purpose": "the owner's phone view of the office - agents, tasks, reports, and the actions waiting on him",
+    "read_only": true,
+    "secrets": "none - the app is public via GitHub Pages, so no credentials may ever enter app/",
+    "permanent_url": "https://aakaash-dotcom.github.io/centum-ai-office/",
+    "permanent_url_status": "needs the owner to enable Pages ONCE: Settings -> Pages -> Deploy from a branch -> main -> /app",
+    "single_file": "app/index.standalone.html",
+    "data_source": "app/data/office.json, compiled from board.json + agents/* + tasks/** + reports/**",
+    "rebuild": "python3 tools/build_office_data.py && python3 tools/build_standalone.py && node tools/smoke_test_app.js",
+    "rebuild_by": [
+      "Manager Agent, Phase 4b of every run",
+      "GitHub Action .github/workflows/rebuild-office-app.yml on push"
+    ],
+    "smoke_test": "node tools/smoke_test_app.js — 18 checks, renders every screen against a fake DOM",
+    "added": "2026-09-23",
+    "view": "top-down pixel office with rooms, stations, lights, sleeping agents and walk-in replacements",
+    "departments_registry": "departments/registry.json",
+    "power": {
+      "live_minutes": 20,
+      "quiet_minutes": 90,
+      "rule": "Lights ON when something is alive: a fresh agent log, a manager run, or the local app heartbeat. Lights OFF (office closed, every agent asleep) when the newest activity is older than quiet_minutes — that is the 'laptop off / office closed' state."
+    },
+    "agent_visuals": {
+      "working": "sitting, typing, monitor on, progress bar above the desk, efficiency meter on the desk edge",
+      "at_risk": "yawning at the desk, amber warning — log is between 30 and 60 minutes old",
+      "sleeping_dead": "asleep with red Zzz — over 60 minutes of silence while marked working: needs a replacement (handover.py)",
+      "sleeping_off": "asleep with grey Zzz — staged, never started: needs the owner to paste its start prompt",
+      "blocked": "standing with a red exclamation — the blocker text is on the desk card",
+      "review": "holding a paper with an amber question mark — waiting on the Manager",
+      "done": "sparkles and a gold star for the run's top producer",
+      "vacant": "empty chair, desk lamp off, VACANT sign"
+    },
+    "stations_and_replacements": "OFFICE.md §15 — a station never dies; its occupant is replaced and the successor continues from the handover",
+    "replacement_tool": "python3 tools/handover.py --slot agent-01 --reason \"...\""
+  },
+  "phase": "PLANNING",
+  "phase_note": "Owner asked for a fresh start: plan first, prepare the setup, then add tasks. Round-1 tasks are archived in tasks/archive/2026-09-23-round1/ and are NOT cancelled — they are parked until the plan is agreed. No new assignments until the plan is approved."
+}

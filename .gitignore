@@ -1,0 +1,13 @@
+# never commit bytecode or caches
+__pycache__/
+*.pyc
+.cache/
+.DS_Store
+
+# scratch output from harvest/factory runs (deliverables belong on Drive, not here)
+_harvest/
+/tmp/
+*.log
+
+# local ledgers that are machine-specific (the shared ones live in ledgers/)
+wm_local.json

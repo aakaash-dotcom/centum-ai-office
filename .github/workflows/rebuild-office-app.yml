@@ -1,0 +1,67 @@
+# Rebuilds the office app's data whenever the office files change.
+# The app in /app is static: it renders app/data/office.json, which is compiled from
+# board.json, agents/*/current.md + log.md, tasks/**, reports/**.
+# Without this workflow the app still works - the Manager rebuilds the data during every
+# run - but this catches edits made straight from the GitHub web UI or a phone.
+name: Rebuild office app data
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "board.json"
+      - "agents/**"
+      - "tasks/**"
+      - "reports/**"
+      - "ledgers/**"
+      - "departments/**"
+      - "training/**"
+      - "OFFICE.md"
+      - "MANAGER-GUIDE.md"
+      - "tools/build_office_data.py"
+      - "tools/build_standalone.py"
+      - "app/app.js"
+      - "app/index.html"
+      - "app/styles.css"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rebuild-office-app
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore: rebuild office app data') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile the office data
+        run: |
+          python3 tools/build_office_data.py
+          python3 tools/build_standalone.py
+          python3 tools/make_icons.py
+
+      - name: Smoke-test the app
+        run: node tools/smoke_test_app.js
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name "centum-office-bot"
+          git config user.email "centum-office-bot@users.noreply.github.com"
+          git add app/data app/index.standalone.html app/icons
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+          else
+            git commit -m "chore: rebuild office app data [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi

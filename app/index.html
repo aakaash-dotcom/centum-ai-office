@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<title>CENTUM AI Office</title>
+<meta name="description" content="Mobile control room for the CENTUM AI Office — agents, tasks, reports.">
+<meta name="theme-color" content="#080c12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CENTUM Office">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="stylesheet" href="styles.css?v=3">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-row">
+    <div class="brand">
+      <div class="brand-mark">C</div>
+      <div class="brand-text">
+        <div class="brand-title">CENTUM AI Office</div>
+        <div class="brand-sub" id="brandSub">Connecting…</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <button id="refreshBtn" class="chip" title="Refresh office data" style="cursor:pointer;font-size:13px;padding:5px 10px">⟳</button>
+    <div id="healthChip" class="health-chip health-ATTENTION">…</div>
+  </div>
+  <div id="freezeStrip" class="freeze-strip" hidden></div>
+</header>
+
+<main id="view" class="wrap"><div class="empty">Loading the office…</div></main>
+
+<nav class="nav" id="nav"></nav>
+
+<script>
+/* ---- boot guard -------------------------------------------------------------
+   If a stale service worker or cache keeps an old build on screen, this gets you
+   out without touching settings:
+   - open the app with ?fresh=1  -> clears worker + caches and reloads
+   - or tap the button that appears if the app has not booted within 3.5 seconds
+   Nothing here touches office data, Drive, or any secret. */
+(function () {
+  var BUILD = "v3";
+  function escapeHatch(reason) {
+    try {
+      var done = false;
+      function go() {
+        if (done) return;
+        done = true;
+        // a brand-new URL can never be served from a cache, ours or a proxy's
+        location.replace(location.pathname + "?v=" + Date.now());
+      }
+      var jobs = [];
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+          return Promise.all(rs.map(function (r) { return r.unregister(); }));
+        }));
+      }
+      if (window.caches && caches.keys) {
+        jobs.push(caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }));
+      }
+      Promise.all(jobs).then(go, go);
+      setTimeout(go, 1200);
+    } catch (e) { location.reload(); }
+  }
+  window.__CENTUM_ESCAPE = escapeHatch;
+
+  if (/[?&]fresh=1/.test(location.search)) { escapeHatch("fresh"); return; }
+
+  setTimeout(function () {
+    if (window.__CENTUM_BOOTED) return;              // new build is running, all good
+    var old = document.getElementById("bootGuard");
+    if (old) return;
+    var b = document.createElement("button");
+    b.id = "bootGuard";
+    b.textContent = "⟳ Tap to load the new version";
+    b.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:200;" +
+      "background:#f5b942;color:#1a1206;border:0;border-radius:14px;padding:14px 18px;" +
+      "font:600 15px -apple-system,system-ui,sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.5)";
+    b.onclick = function () { escapeHatch("boot-guard"); };
+    document.body.appendChild(b);
+  }, 3500);
+
+  window.__CENTUM_BUILD = BUILD;
+  if (/[?&]swreload=/.test(location.search)) {
+    // came back from the worker's post-purge reload: tidy the URL without re-fetching
+    try { history.replaceState(null, "", location.pathname); } catch (e) {}
+  }
+})();
+</script>
+
+<script src="office.js?v=3"></script>
+<script src="data/office.data.js?v=3" onerror="window.__noFallback=true"></script>
+<script src="app.js?v=3"></script>
+</body>
+</html>
