@@ -5,6 +5,13 @@
 
 ---
 
+## 📱 Your office on your phone
+
+**Open:** the Live Preview link for the office app · **Permanent:** `https://aakaash-dotcom.github.io/centum-ai-office/` (after merging the PR once and turning on Pages — Settings → Pages → main → `/app`)
+**No internet?** `app/index.standalone.html` is the whole office in one file — download and open it.
+
+The app is **read-only** (it can never upload or delete) and **secret-free** (it is published publicly). Details: [`app/README.md`](app/README.md).
+
 ## 30-second status
 
 | | |
@@ -34,6 +41,7 @@
 ## Office map
 
 ```
+app/                       The Virtual Office — the owner's phone control room
 OFFICE.md                  Master rules for every agent (read first)
 board.json                 Single source of truth: who is doing what
 MANAGER-GUIDE.md           The Manager Agent's runbook (phases, review, reports)

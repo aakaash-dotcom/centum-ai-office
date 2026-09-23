@@ -1,6 +1,6 @@
 {
   "office_name": "CENTUM AI Office",
-  "last_updated": "2026-09-23T13:55:00Z",
+  "last_updated": "2026-09-23T14:05:00Z",
   "freeze": {
     "active": true,
     "ordered_by": "owner",
@@ -15,8 +15,8 @@
   },
   "manager": {
     "status": "ACTIVE",
-    "last_run": "2026-09-23T13:55:00Z",
-    "next_action": "Initial setup complete - 20 tasks queued, 5 slots staged. Waiting for owner GO to activate agent-05 (TASK-001, the page-1 gate) and agent-01 (TASK-002, first publish)."
+    "last_run": "2026-09-23T14:05:00Z",
+    "next_action": "Initial setup complete - 20 tasks queued, 5 slots staged, virtual office app built (app/ + GitHub Pages pending one owner setting). Waiting for owner GO to activate agent-05 (TASK-001, the page-1 gate) and agent-01 (TASK-002, first publish)."
   },
   "existing_work_summary": {
     "inherited_from": "5-agent team, 16-23 Sep 2026 (Agent B debrief)",
@@ -74,7 +74,14 @@
           "sessions_count": 0,
           "is_at_risk": false,
           "blocker": null,
-          "lane_backlog": ["TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-019"]
+          "lane_backlog": [
+            "TASK-003",
+            "TASK-004",
+            "TASK-005",
+            "TASK-006",
+            "TASK-007",
+            "TASK-019"
+          ]
         },
         "agent-02": {
           "status": "STAGED",
@@ -89,7 +96,9 @@
           "sessions_count": 0,
           "is_at_risk": false,
           "blocker": null,
-          "lane_backlog": ["TASK-017"]
+          "lane_backlog": [
+            "TASK-017"
+          ]
         },
         "agent-03": {
           "status": "STAGED",
@@ -104,7 +113,13 @@
           "sessions_count": 0,
           "is_at_risk": false,
           "blocker": null,
-          "lane_backlog": ["TASK-010", "TASK-013", "TASK-014", "TASK-015", "TASK-016"]
+          "lane_backlog": [
+            "TASK-010",
+            "TASK-013",
+            "TASK-014",
+            "TASK-015",
+            "TASK-016"
+          ]
         },
         "agent-04": {
           "status": "STAGED",
@@ -119,7 +134,9 @@
           "sessions_count": 0,
           "is_at_risk": false,
           "blocker": null,
-          "lane_backlog": ["TASK-012"]
+          "lane_backlog": [
+            "TASK-012"
+          ]
         },
         "agent-05": {
           "status": "STAGED",
@@ -134,7 +151,10 @@
           "sessions_count": 0,
           "is_at_risk": false,
           "blocker": null,
-          "lane_backlog": ["TASK-018", "TASK-020"]
+          "lane_backlog": [
+            "TASK-018",
+            "TASK-020"
+          ]
         }
       }
     }
@@ -155,5 +175,22 @@
     "11th/12th public-paper harvest (owner's park stands; HSE splits already logged are not to be extended)",
     "classes 1-7 and CBSE (grey until files exist)",
     "Centum checkout (needs one working test + one recording)"
-  ]
+  ],
+  "virtual_office": {
+    "app": "app/",
+    "purpose": "the owner's phone view of the office - agents, tasks, reports, and the actions waiting on him",
+    "read_only": true,
+    "secrets": "none - the app is public via GitHub Pages, so no credentials may ever enter app/",
+    "permanent_url": "https://aakaash-dotcom.github.io/centum-ai-office/",
+    "permanent_url_status": "needs the owner to enable Pages ONCE: Settings -> Pages -> Deploy from a branch -> main -> /app",
+    "single_file": "app/index.standalone.html",
+    "data_source": "app/data/office.json, compiled from board.json + agents/* + tasks/** + reports/**",
+    "rebuild": "python3 tools/build_office_data.py && python3 tools/build_standalone.py && node tools/smoke_test_app.js",
+    "rebuild_by": [
+      "Manager Agent, Phase 4b of every run",
+      "GitHub Action .github/workflows/rebuild-office-app.yml on push"
+    ],
+    "smoke_test": "node tools/smoke_test_app.js — 18 checks, renders every screen against a fake DOM",
+    "added": "2026-09-23"
+  }
 }

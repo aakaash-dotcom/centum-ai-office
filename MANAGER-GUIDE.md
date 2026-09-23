@@ -92,6 +92,21 @@ Rules for the report:
 - Every review the owner might want to check has a **GitHub link**.
 - No secrets. No Apps Script SECRET, ever.
 
+## PHASE 4b — REBUILD THE VIRTUAL OFFICE APP (do this before reporting)
+
+The owner reads the app, not GitHub. After writing the daily report, refresh its data:
+
+```
+python3 tools/build_office_data.py     # board.json + agents + tasks + reports -> app/data/office.json
+python3 tools/build_standalone.py      # one-file version for sharing
+node tools/smoke_test_app.js           # must print ALL CHECKS PASSED
+```
+
+- If the smoke test fails, fix the data or the app code, re-run, and only then report. Never hand the owner a broken screen.
+- If the failure is in `tools/md2html.py` or `app/app.js`, that is a real defect — fix it in the same run and note it in the report's TECHNIQUES STATUS section.
+- Include the app link in the owner summary: **`https://aakaash-dotcom.github.io/centum-ai-office/`** (permanent), plus the local preview if the session has one.
+- Adding a new agent slot to `board.json` makes it appear in the app automatically — no app change needed. Adding a new *screen* is a task for a worker slot, not for the Manager.
+
 ## PHASE 5 — DELIVER THE SUMMARY
 
 Post exactly this shape to the owner:
@@ -150,6 +165,8 @@ Health rules: **GOOD** = no blockers, ≥1 task moved forward, no failed reviews
 **The same quality failure appears twice** → update `training/quality-checklist.md` and `content-standards.md` to close it, add a line to the report: *what changed and why*. Keep an "Updated" note at the top of the changed document.
 
 **A technique from the debrief stops working** → document the failure in the daily report (what it was supposed to do, exact error), create a debugging task with full context + the fallback to use meanwhile, and assign it to the QA lane (agent-05) unless it is a Drive bridge issue, which goes to the FACTORY lane (agent-04).
+
+**The owner wants something changed in the app** → it is a task for a worker slot (QA/CENTUM lane) unless it is a one-line data fix. Write the task with the exact screen, the exact change, and the smoke test as the stop condition. Keep the app read-only and secret-free; a feature that requires writing to Drive does not belong in the app.
 
 **Owner wants a new department** → ask exactly four things: (1) what does this team produce? (2) how many agents? (3) what tools/access do they have? (4) what is the first batch of tasks? Then create: the department block in `board.json`, `agents/agent-XX/current.md` + `log.md` for each new slot, `training/roles/<role>.md`, 10 self-contained tasks in `tasks/queue/`, and an updated `OFFICE.md` §12. Finish by giving the owner the exact paste prompt per new agent.
 

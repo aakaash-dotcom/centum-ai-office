@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<title>CENTUM AI Office</title>
+<meta name="description" content="Mobile control room for the CENTUM AI Office — agents, tasks, reports.">
+<meta name="theme-color" content="#080c12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CENTUM Office">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-row">
+    <div class="brand">
+      <div class="brand-mark">C</div>
+      <div class="brand-text">
+        <div class="brand-title">CENTUM AI Office</div>
+        <div class="brand-sub" id="brandSub">Connecting…</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <button id="refreshBtn" class="chip" title="Refresh office data" style="cursor:pointer;font-size:13px;padding:5px 10px">⟳</button>
+    <div id="healthChip" class="health-chip health-ATTENTION">…</div>
+  </div>
+  <div id="freezeStrip" class="freeze-strip" hidden></div>
+</header>
+
+<main id="view" class="wrap"><div class="empty">Loading the office…</div></main>
+
+<nav class="nav" id="nav"></nav>
+
+<script src="data/office.data.js" onerror="window.__noFallback=true"></script>
+<script src="app.js"></script>
+</body>
+</html>

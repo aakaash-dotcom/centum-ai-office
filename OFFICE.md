@@ -200,3 +200,24 @@ Agent → Manager → Owner. The Manager resolves anything answerable from this 
 | Content Production | agent-01 … agent-05 | `departments/content/overview.md` |
 
 To add a department (e.g. Video, Website liaison, Sales), the Manager follows `MANAGER-GUIDE.md` §"New department" — it creates the board section, slots, role training, and the first 10 tasks before telling the owner the paste prompts.
+
+## 13. The Virtual Office app (`app/`) — the owner's window
+
+The owner is on a phone. He does not read GitHub. The app in `app/` is how he sees the office: agents, tasks, reports, and the actions waiting on him, each with a **Copy prompt** button.
+
+Rules for the app:
+- **Read-only.** It renders `app/data/office.json` and can never upload, move, or delete anything. All Drive work stays in agent sessions behind the page-1 gate.
+- **No secrets, ever.** `app/` is published on the public internet via GitHub Pages. No Apps Script URL or SECRET, no tokens, no credentials — not in data, not in code, not in comments.
+- **`app/data/*` and `app/index.standalone.html` are generated.** Never hand-edit them; fix the source (`board.json`, a log, a task, a report) and rebuild.
+- **The Manager rebuilds it every run** as part of Phase 4:
+  ```
+  python3 tools/build_office_data.py     # compiles the office into app/data/office.json
+  python3 tools/build_standalone.py      # packs the one-file version
+  node tools/smoke_test_app.js           # renders every screen; must pass before reporting
+  ```
+- A manager run is not finished until those three commands pass and the app shows the new report.
+- Worker agents do not touch `app/` except to add a screen when the Manager assigns it as a task. If you change `app/app.js`, the smoke test must pass in the same session.
+
+## 14. What to do when the owner says "continue"
+
+That is a **manager** instruction, not a worker instruction: the Manager runs Phases 0–5, rebuilds the app data, and reports. A worker agent that hears "continue" resumes its own task from the first step not proven done on Drive (`OFFICE.md` §8) — it does not restart, and it does not rebuild the app.
