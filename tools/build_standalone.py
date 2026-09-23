@@ -39,11 +39,14 @@ bundle = (
 )
 bundle = bundle.replace("</script>", "<\\/script>")
 html = re.sub(
-    r'<script src="office\.js"></script>\s*<script src="data/office\.data\.js"[^>]*></script>\s*'
-    r'<script src="app\.js"></script>',
+    r'<script src="office\.js(\?[^"]*)?"></script>\s*'
+    r'<script src="data/office\.data\.js(\?[^"]*)?"[^>]*></script>\s*'
+    r'<script src="app\.js(\?[^"]*)?"></script>',
     lambda _m: f"<script>\n{bundle}\n</script>",  # lambda: keep JS backslashes literal
     html,
 )
+if '<script src=' in html:
+    raise SystemExit("ERROR: standalone build left external script tags behind: " + html[:400])
 html = html.replace("<title>CENTUM AI Office</title>",
                     "<title>CENTUM AI Office</title>\n<!-- single-file build: no server, no internet needed -->")
 OUT.write_text(html, encoding="utf-8")

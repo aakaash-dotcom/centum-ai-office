@@ -537,12 +537,8 @@ def build() -> dict:
     for s_ in all_slots:
         activity.append(s_.get("last_log_time") or "")
     activity.append((board.get("manager") or {}).get("last_run") or "")
-    hb = ROOT / "app" / "data" / "heartbeat.json"
-    if hb.exists():
-        try:
-            activity.append(json.loads(read(hb) or "{}").get("last_alive", ""))
-        except Exception:
-            pass
+    # The lights follow AGENTS and the MANAGER only. Opening the app must not fake
+    # a live office, so an app heartbeat is deliberately not counted here.
     power = compute_power(activity, reference, vcfg)
 
     # star: the run's top producer among desks that are actually working

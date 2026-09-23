@@ -6,7 +6,8 @@
 
   var REPO = "https://github.com/aakaash-dotcom/centum-ai-office";
   var DATA = null;
-  var state = { tab: "office", bucket: "queue", lane: "all", q: "" };
+  var BUILD = window.__CENTUM_BUILD || "v3";
+  var state = { tab: "office", bucket: "queue", lane: "all", q: "", demo: false };
 
   /* ------------------------------------------------------------------ utils */
   function el(tag, cls, html) {
@@ -68,7 +69,7 @@
   function paintHeader() {
     var o = DATA.office;
     document.getElementById("brandSub").textContent =
-      "Updated " + DATA.generated_label + " · " + DATA.repo_file_count + " files in repo";
+      "build " + BUILD + " · updated " + DATA.generated_label + " · " + DATA.repo_file_count + " files in repo";
     var chip = document.getElementById("healthChip");
     var key = o.health_key === "GOOD" ? "GOOD" : (o.health_key === "CRITICAL" ? "CRITICAL" : "ATTENTION");
     chip.className = "health-chip health-" + key;
@@ -132,6 +133,20 @@
     pixCard.appendChild(host);
     s.appendChild(pixCard);
 
+    var pixBtns = el("div", "btn-row");
+    pixBtns.style.margin = "0 0 12px";
+    var demoBtn = el("button", "btn " + (state.demo ? "" : "primary") + " sm",
+      state.demo ? "■ Back to the live view" : "▶ See a working day (preview)");
+    demoBtn.onclick = function () { state.demo = !state.demo; render(); };
+    pixBtns.appendChild(demoBtn);
+    var wakeBtn = el("button", "btn sm", "☕ Wake an agent");
+    wakeBtn.onclick = function () {
+      var next = DATA.slots.filter(function (a) { return a.visual && a.visual.state.indexOf("sleeping") === 0; })[0] || DATA.slots[0];
+      if (next) openDeskSheet(next.id);
+    };
+    pixBtns.appendChild(wakeBtn);
+    s.appendChild(pixBtns);
+
     // legend + who is where
     var legend = el("div", "legend");
     [
@@ -188,11 +203,11 @@
     setTimeout(function () {
       if (window.CentumPixel && host.parentNode) {
         pixelHandle = window.CentumPixel.mount(host, DATA, {
-          onDesk: openDeskSheet,
+          onDesk: function (id) { if (state.demo) { openDeskSheet(id); return; } openDeskSheet(id); },
           onDepartment: openDepartmentSheet,
           onManager: function () { location.hash = "#/help"; },
           onPower: function () { openPowerSheet(); }
-        });
+        }, { demo: state.demo });
       }
     }, 0);
     return s;
@@ -341,7 +356,8 @@
     var p = DATA.power || {};
     var mgr = DATA.manager_desk || {};
     var rows = [
-      ["Lights", p.state === "LIVE" ? "ON — something is working" : p.state === "QUIET" ? "DIM — recent activity, nothing now" : "OFF — the office is closed"],
+      ["Lights", state.demo ? "PREVIEW — this is an example day, not the real office" :
+        (p.state === "LIVE" ? "ON — something is working" : p.state === "QUIET" ? "DIM — recent activity, nothing now" : "OFF — the office is closed")],
       ["Newest activity", p.newest_activity_label || "—"],
       ["Why", p.why || "—"],
       ["Rule", "On when an agent logs, the manager runs, or the app heartbeat is fresh. Off after " + (p.quiet_minutes || 90) + " minutes of silence."],
@@ -809,7 +825,9 @@
       "<div class='kv'><b>iPhone</b><span>Safari → Share → <b>Add to Home Screen</b></span></div>" +
       "<div class='kv'><b>Android</b><span>Chrome → ⋮ → <b>Add to Home screen</b></span></div>" +
       "<div class='kv'><b>GitHub Pages</b><span>the permanent link (Settings → Pages → branch main → /app)</span></div>" +
-      "<div class='kv'><b>Refresh</b><span>pull down or tap ⟳ in the header — the app re-reads office.json</span></div>";
+      "<div class='kv'><b>Refresh</b><span>tap ⟳ in the header — re-reads office.json</span></div>" +
+      "<div class='kv'><b>Build on screen</b><span>" + BUILD + " (this line proves which app version you are looking at)</span></div>" +
+      "<div class='kv'><b>Looking stale?</b><span>open the app with <code>?fresh=1</code> on the end of the link — it clears the offline cache and reloads the new build</span></div>";
     s.appendChild(inst);
 
     s.appendChild(el("div", "section-title", "Links"));
@@ -850,6 +868,7 @@
   /* ------------------------------------------------------------------ boot */
   function boot(data) {
     DATA = data;
+    window.__CENTUM_BOOTED = true;          // tells the boot guard in index.html we are alive
     document.title = "CENTUM AI Office — " + data.office.health;
     paintHeader();
     render();

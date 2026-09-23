@@ -407,8 +407,43 @@
   }
 
   /* ------------------------------------------------------------------ mount */
-  function mount(container, data, handlers) {
+  /* A simulated working day, drawn from the same sprites. Clearly labelled PREVIEW:
+     it exists so the owner can see what a busy office looks like before any agent
+     is actually running. It never touches real state. */
+  var DEMO_TABLE = [
+    ["working", "working", "at_risk", "working", "review"],
+    ["working", "celebrate", "working", "blocked", "working"],
+    ["working", "working", "working", "working", "at_risk"],
+    ["review", "working", "celebrate", "working", "working"]
+  ];
+  var DEMO_TONE = { working: "green", at_risk: "amber", blocked: "red", review: "amber", celebrate: "green" };
+  var DEMO_LABEL = {
+    working: "Working", at_risk: "Quiet for 42 min - at risk", blocked: "Blocked - needs a fix",
+    review: "In review - with the Manager", celebrate: "Approved - desk free"
+  };
+  function demoData(data, frame) {
+    var out = JSON.parse(JSON.stringify(data));
+    var row = DEMO_TABLE[Math.floor(frame / 55) % DEMO_TABLE.length];
+    out.power = { state: "LIVE", newest_activity_label: "just now (preview)" };
+    out.demo = true;
+    out.manager_desk = { active: true, last_label: "3 min ago", next_action: "reviewing the run" };
+    out.slots.forEach(function (slot, i) {
+      var st = row[i % row.length];
+      slot.visual = {
+        state: st, tone: DEMO_TONE[st], label: DEMO_LABEL[st],
+        efficiency: st === "working" ? (1 + ((frame + i) % 3)) : (st === "celebrate" ? 3 : 1),
+        star: i === (Math.floor(frame / 220) % out.slots.length)
+      };
+      slot.progress_percent = (frame * 2 + i * 23) % 101;
+      slot.files_produced = 1 + ((frame / 55 + i) | 0) % 4;
+      slot.occupant = { id: slot.id, generation: 1, since: null };
+    });
+    return out;
+  }
+
+  function mount(container, data, handlers, options) {
     handlers = handlers || {};
+    options = options || {};
     var canvas = document.createElement("canvas");
     canvas.width = W; canvas.height = H;
     canvas.className = "pixel-canvas";
@@ -421,8 +456,8 @@
     wrap.appendChild(canvas);
 
     var badge = document.createElement("div");
-    badge.className = "pixel-power pixel-power-" + (data.power ? data.power.state : "CLOSED");
-    badge.innerHTML = powerBadge(data.power);
+    badge.className = "pixel-power pixel-power-" + (options.demo ? "DEMO" : (data.power ? data.power.state : "CLOSED"));
+    badge.innerHTML = options.demo ? powerBadge({ demo: true }) : powerBadge(data.power);
     wrap.appendChild(badge);
     container.appendChild(wrap);
 
@@ -432,7 +467,9 @@
     function tick() {
       if (stopped) return;
       frame++;
-      draw(ctx, data, frame, hits);
+      var frameData = options.demo ? demoData(data, frame) : data;
+      if (options.demo && frame % 4 === 0 && handlers.onDemoTick) handlers.onDemoTick(frameData);
+      draw(ctx, frameData, frame, hits);
     }
     var timer = setInterval(tick, STEP);
     tick();
@@ -472,6 +509,7 @@
 
   function powerBadge(power) {
     if (!power) return "";
+    if (power.demo) return "<b>PREVIEW</b> · example day — not live";
     var s = power.state;
     if (s === "LIVE") return "<b>LIGHTS ON</b> · working now";
     if (s === "QUIET") return "<b>LIGHTS DIM</b> · last activity " + power.newest_activity_label;

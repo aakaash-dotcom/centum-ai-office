@@ -126,7 +126,8 @@ setTimeout(() => {
     if (!view.children.length) throw new Error("view is empty");
     if (!byId.nav.children.length) throw new Error("nav was not painted");
     const sub = byId.brandSub.textContent || byId.brandSub.innerHTML;
-    if (!/Updated/.test(sub) || !/files in repo/.test(sub)) throw new Error("subtitle not set: " + sub);
+    if (!/build v\d/i.test(sub)) throw new Error("build label missing from the header: " + sub);
+    if (!/updated/i.test(sub) || !/files in repo/.test(sub)) throw new Error("subtitle not set: " + sub);
   });
 
   check("freeze strip shows the freeze", () => {
@@ -226,6 +227,44 @@ setTimeout(() => {
       // the app must be able to explain the replacement; ensure the prompt text is generatable
       if (!fs.existsSync(path.join(ROOT, "tools", "handover.py"))) throw new Error("tools/handover.py missing");
     }
+  });
+
+  console.log("\nLive view, demo mode and recovery\n");
+
+  check("the build guard exists and can escape a stale cache", () => {
+    const html = fs.readFileSync(path.join(APP, "index.html"), "utf8");
+    if (html.indexOf("__CENTUM_ESCAPE") < 0) throw new Error("escape hatch missing from index.html");
+    if (!/fresh=1/.test(html)) throw new Error("?fresh=1 route missing");
+    if (!/\?v=" \+ Date\.now\(\)|"\?v=" \+ Date\.now\(\)/.test(html)) throw new Error("escape hatch must use a unique URL");
+    if (html.indexOf("__CENTUM_BOOTED") < 0) throw new Error("boot guard missing");
+    if (!/\?v=3/.test(html)) throw new Error("assets are not version-stamped");
+  });
+
+  check("the service worker is network-first and purges older caches", () => {
+    const sw = fs.readFileSync(path.join(APP, "sw.js"), "utf8");
+    if (sw.indexOf("centum-office-v3") < 0) throw new Error("cache version was not bumped");
+    if (!/fetch\(req\)/.test(sw)) throw new Error("service worker is not network-first");
+    if (!/caches\.delete/.test(sw)) throw new Error("old caches are not purged on activate");
+  });
+
+  check("demo mode draws a working day without touching real state", () => {
+    const snapshot = JSON.stringify(DATA.slots.map((s) => s.visual));
+    const container = new Node("div");
+    const h = windowStub.CentumPixel.mount(container, DATA, {}, { demo: true });
+    h.destroy();
+    const after = JSON.stringify(DATA.slots.map((s) => s.visual));
+    if (snapshot !== after) throw new Error("demo mode mutated the real office data");
+    const badge = findPowerBadge(container);
+    if (!badge || !/PREVIEW/.test(badge.innerHTML)) throw new Error("demo frame must be labelled PREVIEW");
+  });
+
+  check("every state the demo uses is a known desk state", () => {
+    const src = fs.readFileSync(path.join(APP, "office.js"), "utf8");
+    const known = new Set(["working", "at_risk", "blocked", "review", "celebrate"]);
+    const table = /DEMO_TABLE = \[([\s\S]*?)\];/.exec(src);
+    if (!table) throw new Error("DEMO_TABLE not found");
+    const states = table[1].match(/"[a-z_]+"/g).map((x) => x.replace(/"/g, ""));
+    states.forEach((st) => { if (!known.has(st)) throw new Error("demo uses unknown state: " + st); });
   });
 
   console.log("\nData, prompts and safety\n");

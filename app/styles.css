@@ -422,3 +422,7 @@ a:active { opacity: 0.7; }
 .sheet-body { margin: 6px 0 4px; }
 .sheet-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .sheet .md { font-size: 13.5px; }
+
+/* demo / preview badge — clearly not the real office */
+.pixel-power-DEMO { border-color: rgba(91,141,239,0.55); }
+.pixel-power-DEMO b { color: #9dbcff; }

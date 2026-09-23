@@ -110,7 +110,23 @@ node tools/render_office_preview.js --mode demo --out /tmp/frame.json
 python3 tools/preview_png.py /tmp/frame.json /tmp/preview.png --scale 4   # eyeball the pixel art as a PNG
 ```
 
-## 6. Rules for this folder
+## 6. Troubleshooting: "it looks the same as before"
+
+Symptom: the app shows new data (task counts change) but the old screens — no pixel office.
+
+Cause: the service worker from the first version served the app **shell** cache-first, so the phone kept an old `app.js` while `office.json` updated. Fixed in build v3 (network-first worker + version-stamped assets + boot guard).
+
+| If you see | Do this |
+|---|---|
+| Old-looking screens | Tap **⟳** in the header, then reopen the app |
+| Still old | Open the app link with **`?fresh=1`** on the end — it unregisters the worker, clears the cache and reloads |
+| Not sure which build you have | Check the header subtitle: it says **build v3 · updated …** |
+| A gold **"Tap to load the new version"** button appears | Tap it — the boot guard detected a stale build |
+| Nothing works | Open the single-file build `app/index.standalone.html` (no service worker, always current) |
+
+The app also stores nothing sensitive, so clearing caches is always safe.
+
+## 7. Rules for this folder
 
 1. **No secrets, ever.** No Apps Script URL or SECRET, no tokens, no credentials. This repo is public.
 2. **No writes from the app.** It reads `office.json` and renders. Additions are read-only views.
@@ -118,7 +134,7 @@ python3 tools/preview_png.py /tmp/frame.json /tmp/preview.png --scale 4   # eyeb
 4. **`app/app.js` is hand-written.** If you change it, run `node tools/smoke_test_app.js` and commit the result.
 5. Adding a screen = add a render function + a route in `app.js`. Keep it working with one thumb.
 
-## 7. File map
+## 8. File map
 
 | File | Hand-written? | Purpose |
 |---|---|---|
