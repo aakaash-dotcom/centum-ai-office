@@ -256,6 +256,104 @@ def parse_manifest(path: Path) -> list[dict]:
     return tables
 
 
+# --------------------------------------------------------------------------- office visuals
+
+def parse_roster(path: Path) -> dict:
+    """Latest generation for a station, parsed from roster.md rows."""
+    gens = []
+    for line in read(path).splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 4 or not cells[0].isdigit():
+            continue
+        gens.append({"gen": int(cells[0]), "occupant": cells[1].strip("` "), "started": cells[2],
+                     "ended": cells[3], "reason": cells[4] if len(cells) > 4 else ""})
+    latest = gens[-1] if gens else None
+    return {"generations": gens, "count": len(gens), "latest": latest}
+
+
+def handover_count(path: Path) -> int:
+    """Count real handover blocks (the template example inside a code fence does not count)."""
+    text = re.sub(r"```.*?```", "", read(path), flags=re.S)
+    return len(re.findall(r"^## Handover", text, re.M))
+
+
+def recent_log_count(log_entries: list[dict], minutes: int = 60) -> int:
+    return len([e for e in log_entries if e.get("age_minutes") is not None and e["age_minutes"] <= minutes])
+
+
+def compute_visual(status: str, last_age: int | None, files: int, progress: int,
+                   recent: int, blocked: str | None) -> dict:
+    """Map repo state -> what the owner sees at that desk (OFFICE.md §15 + board.json agent_visuals)."""
+    if status == "BLOCKED" or blocked:
+        return {"state": "blocked", "tone": "red", "label": "Blocked — needs a fix", "efficiency": 1}
+    if status == "REVIEW":
+        return {"state": "review", "tone": "amber", "label": "In review — with the Manager",
+                "efficiency": max(2, min(3, 1 + (1 if files else 0)))}
+    if status == "DONE":
+        return {"state": "celebrate", "tone": "green", "label": "Approved — desk free", "efficiency": 3}
+    if status in ("STAGED", "EMPTY"):
+        return {"state": "sleeping_off", "tone": "grey", "label": "Off duty — never started",
+                "efficiency": 0}
+    if status == "IDLE":
+        return {"state": "sleeping_dead", "tone": "red",
+                "label": f"Stopped — no log for {last_age} min, replace it", "efficiency": 0}
+    if status == "ACTIVE":
+        if last_age is None:
+            return {"state": "at_risk", "tone": "amber", "label": "No log yet — check it", "efficiency": 1}
+        if last_age > 60:
+            return {"state": "sleeping_dead", "tone": "red",
+                    "label": f"Stopped — no log for {last_age} min, replace it", "efficiency": 0}
+        if last_age > 30:
+            return {"state": "at_risk", "tone": "amber",
+                    "label": f"Quiet for {last_age} min — at risk", "efficiency": 1}
+        eff = 0
+        eff += 1 if recent >= 1 else 0
+        eff += 1 if recent >= 4 else 0
+        eff += 1 if files else 0
+        eff = min(3, eff)
+        return {"state": "working", "tone": "green" if eff >= 2 else "amber",
+                "label": "Working" if eff >= 2 else "Working, slowly", "efficiency": eff}
+    return {"state": "vacant", "tone": "grey", "label": "Vacant", "efficiency": 0}
+
+
+def compute_power(activity_stamps: list[str], reference: dt.datetime, cfg: dict) -> dict:
+    """Lights on or off: newest of every activity stamp vs the thresholds."""
+    live_min = int(cfg.get("live_minutes", 20))
+    quiet_min = int(cfg.get("quiet_minutes", 90))
+    newest_iso, newest_age = None, None
+    for stamp in activity_stamps:
+        if not stamp:
+            continue
+        age = minutes_since(stamp, reference)
+        if age is None or age < 0:
+            continue
+        if newest_age is None or age < newest_age:
+            newest_age, newest_iso = age, stamp
+    if newest_age is None:
+        return {"state": "CLOSED", "newest_activity": None, "newest_activity_label": "no activity on record",
+                "minutes": None, "live_minutes": live_min, "quiet_minutes": quiet_min,
+                "why": "nothing has ever logged"}
+    if newest_age <= live_min:
+        state, why = "LIVE", "fresh activity — somebody is working"
+    elif newest_age <= quiet_min:
+        state, why = "QUIET", "recent activity, but nothing right now"
+    else:
+        state, why = "CLOSED", "the newest activity is too old — nothing is running"
+    return {"state": state, "newest_activity": newest_iso, "newest_activity_label": human_age(newest_age),
+            "minutes": newest_age, "live_minutes": live_min, "quiet_minutes": quiet_min,
+            "why": why}
+
+
+def parse_registry(path: Path) -> list[dict]:
+    try:
+        raw = json.loads(read(path) or "{}")
+    except Exception:
+        return []
+    return raw.get("departments", [])
+
+
 def make_prompt(slot_id: str, task: dict) -> str:
     """Build the paste-into-Arena prompt for a slot + task (shape: training/roles/role-prompt-template.md)."""
     lane = task.get("lane", "")
@@ -291,6 +389,30 @@ def make_prompt(slot_id: str, task: dict) -> str:
         f"11/12 while they are parked.\n\n"
         f"Log every step in agents/{slot_id}/log.md in the format in OFFICE.md §7.\n"
         f"If blocked: write the blocker block from OFFICE.md §9, set STATUS: BLOCKED, and stop.\n\n"
+        f"Paste this into a fresh Arena chat for slot {slot_id}."
+    )
+
+
+def make_standby_prompt(slot_id: str) -> str:
+    """A wake-up prompt for a station that has no task yet (planning phase, or between tasks)."""
+    return (
+        f"You are a worker agent in the CENTUM AI Office. Slot: {slot_id} — the office is in its PLANNING phase, "
+        f"so you have no task file yet.\n\n"
+        f"Repository: aakaash-dotcom/centum-ai-office\n\n"
+        f"READ FIRST, in order:\n"
+        f"1. OFFICE.md — master rules (the freeze in §2, the techniques in §5, the stations in §15).\n"
+        f"2. agents/{slot_id}/current.md — your station, your lane, your stop condition.\n"
+        f"3. agents/{slot_id}/roster.md — your generation. If you are a successor, read "
+        f"agents/{slot_id}/handover.md first: your predecessor left notes and you continue from there.\n"
+        f"4. departments/registry.json and PLAN.md — what the office is planning right now.\n\n"
+        f"DO THIS NOW (no Drive writes while the freeze is on):\n"
+        f"1. Write a START line in agents/{slot_id}/log.md in the format in OFFICE.md §7.\n"
+        f"2. Report to the manager chat, in three lines: which lane this station owns, what content this lane will "
+        f"produce, and what you need before you can start (a task file with a stop condition, or the GO).\n"
+        f"3. State the first concrete deliverable you could produce in one session once a task is assigned.\n"
+        f"4. Then stop and wait. Do not invent work, do not harvest, do not upload anything.\n\n"
+        f"NEVER: touch Drive while the freeze is on (except reading), delete or rename anything on Drive, paste the "
+        f"Apps Script secret anywhere, edit catalogue.json, or work on classes 11/12 while they are parked.\n\n"
         f"Paste this into a fresh Arena chat for slot {slot_id}."
     )
 
@@ -337,6 +459,9 @@ def build() -> dict:
             task = tasks_by_id.get(m.group(1)) if m else None
             task_slug = task["slug"] if task else ""
             last = log[0] if log else {}
+            roster = parse_roster(agent_dir / "roster.md")
+            occupant = slot.get("occupant") or {"id": slot_id, "generation": 1, "since": None}
+            last_age = last.get("age_minutes")
             status = current["status"]
             board_status = (slot.get("status") or "EMPTY").upper()
             status = status if status != "EMPTY" else board_status
@@ -364,11 +489,27 @@ def build() -> dict:
                     "last_log_age_label": human_age(last.get("age_minutes")),
                     "last_log_line": last.get("body", "") or (slot.get("last_log_entry") or ""),
                     "sessions_count": slot.get("sessions_count", 0),
-                    "start_prompt": make_prompt(slot_id, task) if task else "",
+                    "occupant": occupant,
+                    "generation": roster["count"] or int(occupant.get("generation", 1)),
+                    "replacements": slot.get("replacements", []),
+                    "handovers": handover_count(agent_dir / "handover.md"),
+                    "recent_log_count": recent_log_count(log, 60),
+                    "task_note": slot.get("current_task_note", ""),
+                    "start_prompt": make_prompt(slot_id, task) if task else make_standby_prompt(slot_id),
+                    "has_task": bool(task),
                     "current_html": current["html"],
                     "log": log,
                 }
             )
+            visual = compute_visual(
+                status,
+                last_age,
+                slots_out[-1]["files_produced"],
+                slots_out[-1]["progress_percent"],
+                slots_out[-1]["recent_log_count"],
+                slots_out[-1]["blocker"],
+            )
+            slots_out[-1]["visual"] = visual
         departments.append(
             {
                 "key": key,
@@ -388,6 +529,36 @@ def build() -> dict:
 
     # ----- reports
     reports = [parse_report(p) for p in sorted((ROOT / "reports" / "daily").glob("20*.md"), reverse=True)][:6]
+
+    # ----- departments registry (the floor plan the app draws) -----
+    registry = parse_registry(ROOT / "departments" / "registry.json")
+    vcfg = (board.get("virtual_office") or {}).get("power") or {}
+    activity = []
+    for s_ in all_slots:
+        activity.append(s_.get("last_log_time") or "")
+    activity.append((board.get("manager") or {}).get("last_run") or "")
+    hb = ROOT / "app" / "data" / "heartbeat.json"
+    if hb.exists():
+        try:
+            activity.append(json.loads(read(hb) or "{}").get("last_alive", ""))
+        except Exception:
+            pass
+    power = compute_power(activity, reference, vcfg)
+
+    # star: the run's top producer among desks that are actually working
+    best_files = max([s_["files_produced"] for s_ in all_slots] or [0])
+    if best_files > 0:
+        for s_ in all_slots:
+            s_["visual"]["star"] = bool(s_["files_produced"] == best_files and s_["status"] in ("ACTIVE", "REVIEW"))
+
+    # archive (round-1 tasks parked during the planning phase)
+    archive = []
+    for folder in sorted((ROOT / "tasks" / "archive").glob("*/")):
+        files = sorted(folder.glob("TASK-*.md"))
+        if files:
+            archive.append({"round": folder.name, "count": len(files),
+                            "path": str(folder.relative_to(ROOT)),
+                            "tasks": [parse_task(f) for f in files]})
 
     # ----- manifest + health
     manifest = parse_manifest(ROOT / "reports" / "READY_MANIFEST.md")
@@ -421,6 +592,18 @@ def build() -> dict:
             "existing_work": board.get("existing_work_summary", {}),
         },
         "departments": departments,
+        "registry": registry,
+        "registryLocks": [d for d in registry if d.get("status") != "OPEN"],
+        "manager_desk": {
+            "active": bool(power["minutes"] is not None and power["minutes"] <= int(vcfg.get("live_minutes", 20))),
+            "last_run": (board.get("manager") or {}).get("last_run", ""),
+            "last_label": human_age(minutes_since((board.get("manager") or {}).get("last_run", ""), reference)),
+            "next_action": (board.get("manager") or {}).get("next_action", ""),
+        },
+        "power": power,
+        "phase": board.get("phase", "WORKING"),
+        "phase_note": board.get("phase_note", ""),
+        "archive": archive,
         "slots": all_slots,
         "tasks": tasks,
         "counts": {
@@ -432,6 +615,11 @@ def build() -> dict:
             "working": len(working),
             "blocked": len(blocked),
             "owner_actions": len(actions),
+            "archived_tasks": sum(a["count"] for a in archive),
+            "departments_open": len([d for d in registry if d.get("status") == "OPEN"]),
+            "departments_locked": len([d for d in registry if d.get("status") == "LOCKED"]),
+            "sleeping": len([s_ for s_ in all_slots if s_["visual"]["state"].startswith("sleeping")]),
+            "needs_replacement": len([s_ for s_ in all_slots if s_["visual"]["state"] == "sleeping_dead"]),
         },
         "reports": reports,
         "owner_actions": actions,
@@ -453,6 +641,9 @@ def main() -> int:
     print(f"  agents={data['counts']['agents']} working={data['counts']['working']} blocked={data['counts']['blocked']}")
     print(f"  tasks: queue={data['counts']['queue']} active={data['counts']['active']} review={data['counts']['review']} done={data['counts']['done']}")
     print(f"  owner actions in latest report: {data['counts']['owner_actions']}")
+    print(f"  power: {data['power']['state']} (newest activity {data['power']['newest_activity_label']})")
+    print(f"  phase: {data['phase']} | archived tasks: {data['counts']['archived_tasks']}")
+    print("  desks: " + " | ".join(f"{s['id']}={s['visual']['state']}" for s in data["slots"]))
     print(f"  health: {data['office']['health']}")
     return 0
 

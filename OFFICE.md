@@ -201,6 +201,7 @@ Agent → Manager → Owner. The Manager resolves anything answerable from this 
 
 To add a department (e.g. Video, Website liaison, Sales), the Manager follows `MANAGER-GUIDE.md` §"New department" — it creates the board section, slots, role training, and the first 10 tasks before telling the owner the paste prompts.
 
+
 ## 13. The Virtual Office app (`app/`) — the owner's window
 
 The owner is on a phone. He does not read GitHub. The app in `app/` is how he sees the office: agents, tasks, reports, and the actions waiting on him, each with a **Copy prompt** button.
@@ -221,3 +222,55 @@ Rules for the app:
 ## 14. What to do when the owner says "continue"
 
 That is a **manager** instruction, not a worker instruction: the Manager runs Phases 0–5, rebuilds the app data, and reports. A worker agent that hears "continue" resumes its own task from the first step not proven done on Drive (`OFFICE.md` §8) — it does not restart, and it does not rebuild the app.
+
+## 15. Stations, occupants, and replacements
+
+The five agents are **stations**, not people. A station never dies; the agent sitting at it can be replaced, and the successor continues the same lane from the predecessor's notes. That is the owner's rule: *"if any agent stops working then we have to remove that agent and add a new agent who will continue from where the old agent left off."*
+
+**Terminology**
+- **Station** = `agent-01 … agent-05` (the desk in the office). Fixed, permanent, keeps the history.
+- **Occupant** = the actual agent session: `agent-01` is generation 1, `agent-01-g2` is generation 2, and so on.
+- **Roster** = `agents/<station>/roster.md` (append-only table of every generation).
+- **Handover** = `agents/<station>/handover.md` (append-only; the last thing a leaving occupant writes).
+
+**When a replacement is required**
+1. `STATUS: ACTIVE` with no log entry for **over 60 minutes** → the Manager sets the station to IDLE and replaces the occupant.
+2. Repeated review failures on the same task (twice) with no progress → replace, and note it in the report.
+3. The owner asks for a replacement from the app (tap the desk → *Replace agent*).
+
+**How a replacement is done (Manager, one command)**
+```
+python3 tools/handover.py --slot agent-01 --reason "no log entry for 95 minutes"
+```
+That writes, in this order: the handover block (with the log tail, progress, next step, stop condition and warnings), the roster row, the REPLACED/START log lines, a fresh `current.md` for the new generation, and a bumped `occupant` in `board.json` — then rebuilds the app so the new agent appears at the desk.
+
+**What the successor must do**
+1. Read `agents/<station>/handover.md`, newest block first.
+2. Read the predecessor's `log.md` tail.
+3. `list` the target Drive folder and confirm what is already done.
+4. Resume at the first step that is **not** proven done on Drive. Never restart, never re-upload, never delete.
+5. Log a START line immediately.
+
+**Never** delete a roster row, a handover block, or a predecessor's log lines. The history is how the next replacement is judged.
+
+## 16. The planning phase (current)
+
+The owner asked for a fresh start: **plan first, prepare the setup, then add tasks.** While `board.json` has `"phase": "PLANNING"`:
+
+- No new assignments. The queue is empty on purpose.
+- The office app shows the planning banner and the archived round-1 tasks.
+- Round-1 tasks live in `tasks/archive/2026-09-23-round1/` — parked, not cancelled. When the plan is agreed, the Manager writes **new** task files with new ids and cites the archived one as the source.
+- Stations may still be started for **read-only or tooling work** the owner explicitly approves (the page-1 gate is the standing example).
+- The plan document is `PLAN.md` at the repo root. It is the only file that decides what gets built next.
+
+## 17. Opening a new department (rooms)
+
+Departments are rooms in the office app, defined in `departments/registry.json`. Harvest is open; Marketing and Video are locked; the website lane is external (Qwen) and is never staffed from here.
+
+To open a locked room the Manager must, in order:
+1. Get the owner's explicit decision (a new department is scope, and scope needs the owner).
+2. Ask the four questions from `MANAGER-GUIDE.md §"New department"`: what does it produce, how many agents, what tools, what is the first batch of tasks.
+3. Write the department's plan (`departments/<id>/PLAN.md`), flip `status` to OPEN in the registry, and give each new station a desk, a role, a training file (`training/roles/<role>.md`), a roster, and a self-contained first task.
+4. Add the stations to `board.json` and rebuild the app so the new room lights up.
+
+A locked room never consumes a station in the Harvest room, and no department opens because "there was time".

@@ -85,9 +85,9 @@
   function paintNav() {
     var c = DATA.counts;
     var tabs = [
-      ["office", "Office", null],
+      ["office", "Office", c.sleeping || null],
       ["agents", "Agents", c.agents],
-      ["tasks", "Tasks", c.queue + c.active + c.review],
+      ["tasks", "Tasks", c.queue + c.active + c.review || c.archived_tasks],
       ["reports", "Reports", null],
       ["help", "Help", c.owner_actions || null]
     ];
@@ -103,88 +103,351 @@
   }
 
   /* ------------------------------------------------------------------ office */
+  var pixelHandle = null;
+
+  function shortLane(slot) {
+    var r = (slot.role || "").toUpperCase();
+    if (r.indexOf("PYQ") === 0) return "PYQ";
+    if (r.indexOf("MODEL") === 0) return "MODEL";
+    if (r.indexOf("ONEWORD") === 0) return "QBANK";
+    if (r.indexOf("FACTORY") === 0) return "FACTORY";
+    if (r.indexOf("QA") === 0) return "QA";
+    return slot.id;
+  }
+  var VIS_EMOJI = {
+    working: "🟢", at_risk: "🟡", sleeping_dead: "🔴", sleeping_off: "⚪",
+    blocked: "⛔", review: "📄", celebrate: "✨", vacant: "▫", empty: "▫"
+  };
+  function visEmoji(v) { return VIS_EMOJI[v && v.state] || "▫"; }
+
   function screenOffice() {
     var o = DATA.office, c = DATA.counts;
     var s = el("div", "screen");
 
-    var hero = el("div", "hero");
-    hero.innerHTML =
-      "<h1>" + esc(o.name) + "</h1>" +
-      "<div class='sub'>Manager " + esc((o.manager_status || "").toLowerCase()) +
-      " · last run " + esc(o.manager_last_run_label) + "</div>" +
-      "<div class='hero-grid'>" +
-      stat(c.queue, "Queued") + stat(c.active, "Active") + stat(c.review, "Review") + stat(c.done, "Done") +
-      "</div>";
-    s.appendChild(hero);
+    if (pixelHandle) { try { pixelHandle.destroy(); } catch (e) {} pixelHandle = null; }
 
+    // ---- the pixel floor
+    var pixCard = el("div", "card pixel-card");
+    var host = el("div");
+    pixCard.appendChild(host);
+    s.appendChild(pixCard);
+
+    // legend + who is where
+    var legend = el("div", "legend");
+    [
+      ["🟢", "working"], ["🟡", "quiet / at risk"], ["🔴", "stopped — replace"],
+      ["⚪", "off duty"], ["⛔", "blocked"], ["📄", "in review"]
+    ].forEach(function (l) {
+      legend.appendChild(el("span", "legend-item", "<i>" + l[0] + "</i>" + l[1]));
+    });
+    s.appendChild(legend);
+
+    if (c.sleeping) {
+      s.appendChild(el("div", "banner gold", "<div class='t'>" + c.sleeping + " agent" + (c.sleeping > 1 ? "s" : "") +
+        " asleep</div><div class='muted'>" +
+        (c.needs_replacement ? c.needs_replacement + " stopped mid-work (red Zzz) — those need a replacement. " : "") +
+        "The rest are off duty: they start the moment you paste their prompt. Tap a desk to wake one.</div>"));
+    }
+
+    // ---- needs you
     if (c.owner_actions) {
-      s.appendChild(el("div", "banner gold", "<div class='t'>" + c.owner_actions +
-        " things need you</div><div class='muted'>Copy a prompt, paste it into a fresh Arena chat. " +
-        "Full detail in Help and Reports.</div>" +
-        "<div class='btn-row'><button class='btn primary sm' id='goHelp'>See what to do →</button></div>"));
-      setTimeout(function () {
-        var b = document.getElementById("goHelp");
-        if (b) b.onclick = function () { location.hash = "#/help"; };
-      }, 0);
+      var act = el("div", "banner gold", "<div class='t'>" + c.owner_actions + " things need you</div>" +
+        "<div class='muted'>" + (DATA.phase === "PLANNING" ? "Planning phase — decisions come before tasks." : "Copy a prompt and paste it into a fresh Arena chat.") + "</div>");
+      var ab = el("div", "btn-row");
+      var b1 = el("button", "btn primary sm", "What to do →");
+      b1.onclick = function () { location.hash = "#/help"; };
+      ab.appendChild(b1);
+      var b2 = el("button", "btn sm", "Planning sheet →");
+      b2.onclick = function () { location.hash = "#/plan"; };
+      ab.appendChild(b2);
+      act.appendChild(ab);
+      s.appendChild(act);
     }
 
-    s.appendChild(el("div", "section-title", "Agents <span class='count'>" + c.working + " working</span>"));
-    DATA.slots.forEach(function (a) { s.appendChild(agentRow(a)); });
+    // ---- run leaderboard (who is working effectively)
+    var ranked = DATA.slots.slice().sort(function (a, b) {
+      return (b.files_produced - a.files_produced) || (b.recent_log_count - a.recent_log_count);
+    });
+    s.appendChild(el("div", "section-title", "This run <span class='count'>" +
+      (c.working ? c.working + " working" : "nobody working") + "</span>"));
+    var lb = el("div", "card");
+    ranked.forEach(function (a) {
+      var row = el("div", "lb-row");
+      row.innerHTML =
+        "<span class='lb-emoji'>" + visEmoji(a.visual) + "</span>" +
+        "<span class='grow truncate'><b>" + esc(shortLane(a)) + "</b> <span class='tiny'>" + esc(a.id) +
+        (a.generation > 1 ? " · gen " + a.generation : "") + "</span></span>" +
+        "<span class='tiny'>" + (a.files_produced || 0) + " files · " + (a.recent_log_count || 0) + " logs/h</span>" +
+        "<span class='meter'><i style='width:" + Math.round(((a.visual && a.visual.efficiency) || 0) / 3 * 100) + "%;background:" +
+        ((a.visual && a.visual.tone === "red") ? "var(--red)" : (a.visual && a.visual.tone === "amber") ? "var(--amber)" : "var(--green)") + "'></i></span>";
+      row.onclick = function () { openDeskSheet(a.id); };
+      lb.appendChild(row);
+    });
+    s.appendChild(lb);
 
-    s.appendChild(el("div", "section-title", "Jump to"));
-    var tiles = el("div", "tile-grid");
-    tiles.appendChild(tile("📋", "Tasks", c.queue + " waiting · " + c.active + " active", "#/tasks"));
-    tiles.appendChild(tile("📁", "Files shelf", "What is published", "#/files"));
-    tiles.appendChild(tile("📰", "Reports", "Daily manager runs", "#/reports"));
-    tiles.appendChild(tile("❓", "How to work this", "4 taps, 30 seconds", "#/help"));
-    s.appendChild(tiles);
-
-    var work = DATA.office.existing_work;
-    if (work) {
-      var card = el("div", "card");
-      card.innerHTML = "<div class='row'><div class='grow'><b>Carried over from the 4-day team</b>" +
-        "<div class='tiny'>The office did not start from zero</div></div><span class='chip gold'>recovered</span></div>";
-      var body = el("div", "muted");
-      body.style.marginTop = "10px";
-      body.innerHTML = "<div class='kv'><b>High-trust files</b><span>" + esc(work.files_completed) + "</span></div>" +
-        "<div class='kv'><b>Collected</b><span>" + esc((work.resources_collected || "").split(";")[0]) + "</span></div>" +
-        "<div class='kv'><b>Techniques</b><span>" + ((work.techniques_established || []).length) + " documented in OFFICE.md §5</span></div>";
-      card.appendChild(body);
-      var det = el("div", "", "<div style='margin-top:10px'><div class='tiny'><b>Known failures now blocked by the standards:</b></div><ul class='md' style='font-size:13px;color:var(--muted);margin-top:6px'>" +
-        (work.known_failures || []).slice(0, 6).map(function (f) { return "<li>" + esc(f) + "</li>"; }).join("") +
-        "</ul></div>");
-      card.appendChild(det);
-      card.classList.add("tap");
-      card.onclick = function () { location.hash = "#/work"; };
-      s.appendChild(el("div", "section-title", "Existing work"));
-      s.appendChild(card);
-    }
+    setTimeout(function () {
+      if (window.CentumPixel && host.parentNode) {
+        pixelHandle = window.CentumPixel.mount(host, DATA, {
+          onDesk: openDeskSheet,
+          onDepartment: openDepartmentSheet,
+          onManager: function () { location.hash = "#/help"; },
+          onPower: function () { openPowerSheet(); }
+        });
+      }
+    }, 0);
     return s;
   }
-  function stat(n, label) { return "<div class='stat'><b>" + n + "</b><span>" + label + "</span></div>"; }
-  function tile(ic, lb, sb, hash) {
-    var t = el("div", "tile", "<div class='ic'>" + ic + "</div><div class='lb'>" + esc(lb) + "</div><div class='sb'>" + esc(sb) + "</div>");
-    t.onclick = function () { location.hash = hash; };
-    return t;
+
+  /* ------------------------------------------------------------------ sheets */
+  function closeSheet() {
+    var old = document.getElementById("sheet");
+    if (old) old.remove();
+    var scrim = document.getElementById("scrim");
+    if (scrim) scrim.remove();
+  }
+  function openSheet(title, subtitle, rows, buttons, extraHtml) {
+    closeSheet();
+    var scrim = el("div", "scrim");
+    scrim.id = "scrim";
+    scrim.onclick = closeSheet;
+    document.body.appendChild(scrim);
+
+    var sheet = el("div", "sheet");
+    sheet.id = "sheet";
+    var head = el("div", "sheet-head");
+    head.innerHTML = "<div class='grow'><div class='sheet-title'>" + title + "</div>" +
+      (subtitle ? "<div class='tiny'>" + subtitle + "</div>" : "") + "</div>";
+    var x = el("button", "sheet-x", "✕");
+    x.onclick = closeSheet;
+    head.appendChild(x);
+    sheet.appendChild(head);
+
+    if (rows && rows.length) {
+      var body = el("div", "sheet-body");
+      rows.forEach(function (r) {
+        var d = el("div", "kv");
+        d.innerHTML = "<b>" + esc(r[0]) + "</b><span>" + (r[2] ? r[1] : esc(r[1])) + "</span>";
+        body.appendChild(d);
+      });
+      sheet.appendChild(body);
+    }
+    if (extraHtml) sheet.appendChild(md(extraHtml));
+    if (buttons && buttons.length) {
+      var bwrap = el("div", "sheet-btns");
+      buttons.forEach(function (btn) {
+        var b = el("button", "btn " + (btn.kind || ""), btn.label);
+        b.onclick = function () { btn.onClick(); };
+        bwrap.appendChild(b);
+      });
+      sheet.appendChild(bwrap);
+    }
+    document.body.appendChild(sheet);
+    setTimeout(function () { sheet.classList.add("on"); }, 10);
+  }
+
+  function openDeskSheet(id) {
+    var a = null;
+    DATA.slots.forEach(function (x) { if (x.id === id) a = x; });
+    if (!a) return;
+    var v = a.visual || {};
+    var rows = [
+      ["Station", a.id + " · generation " + a.generation],
+      ["Occupant", (a.occupant && a.occupant.id) || a.id],
+      ["State", v.label || a.status_label],
+      ["Lane", shortLane(a)],
+      ["Task", a.task_id ? a.task_id + " — " + a.task_name : (a.task_note || "no task assigned")],
+      ["Progress", (a.progress_percent || 0) + "% · " + (a.files_produced || 0) + " files produced"],
+      ["Last log", (a.last_log_line || "none") + " (" + a.last_log_age_label + ")"],
+      ["Recent activity", (a.recent_log_count || 0) + " log entries in the last hour"],
+      ["Next step", a.next_step || "—"],
+      ["Stop condition", a.stop_condition || "—"]
+    ];
+    if (a.blocker) rows.push(["Blocker", a.blocker]);
+    if (a.replacements && a.replacements.length) {
+      rows.push(["Replacements", a.replacements.length + " (last: gen " + a.replacements[a.replacements.length - 1].gen + " — " + a.replacements[a.replacements.length - 1].reason + ")"]);
+    }
+    if (a.handovers) rows.push(["Handovers on file", String(a.handovers)]);
+
+    var buttons = [];
+    if (v.state === "sleeping_dead") {
+      buttons.push({
+        label: "🔁 Replace this agent (handover)", kind: "primary",
+        onClick: function () {
+          copy("You are the Manager Agent. Station " + a.id + " has stopped: " + (a.last_log_age_label || "silent") +
+            ", status " + a.status + ", task " + (a.task_id || "none") + ".\n\n" +
+            "Do the replacement exactly as OFFICE.md \u00a715 says:\n" +
+            "1. Run: python3 tools/handover.py --slot " + a.id + " --reason \"" + (a.last_log_age_label || "silent") + " on " + (a.task_id || "its task") + "\"\n" +
+            "2. Confirm the handover block captured the log tail, the resume point and the stop condition.\n" +
+            "3. Give me the start prompt for the new occupant to paste into a fresh Arena chat.\n" +
+            "4. Note the replacement in the daily report (old occupant -> new occupant, reason, time).",
+"Replacement prompt copied — paste it into the manager chat");
+        }
+      });
+    }
+    if (a.start_prompt) {
+      buttons.push({
+        label: v.state === "sleeping_off" ? (a.has_task ? "☕ Wake this agent (copy prompt)" : "☕ Wake this agent (standby prompt)") : "Copy start prompt",
+        kind: v.state === "sleeping_dead" ? "" : "primary",
+        onClick: function () { copy(a.start_prompt, "Prompt copied — paste it into a fresh Arena chat for " + a.id); }
+      });
+    }
+    buttons.push({
+      label: "Open full profile →", kind: "ghost",
+      onClick: function () { closeSheet(); location.hash = "#/agent/" + a.id; }
+    });
+    openSheet(visEmoji(v) + " " + shortLane(a) + " — " + a.id,
+      "generation " + a.generation + " · " + (v.label || a.status_label), rows, buttons);
+  }
+
+  function openDepartmentSheet(id) {
+    var d = null;
+    (DATA.registry || []).forEach(function (x) { if (x.id === id) d = x; });
+    if (!d && id === "power") return openPowerSheet();
+    if (!d) return;
+    var rows = [
+      ["Status", d.status],
+      ["Purpose", d.purpose || "—"],
+      ["Unlock when", d.unlock_condition || "—"],
+      ["Stations", (d.stations || []).length ? d.stations.join(", ") : "none yet"]
+    ];
+    var buttons = [];
+    if (d.status === "LOCKED") {
+      buttons.push({
+        label: "🔓 Copy prompt to open this department", kind: "primary",
+        onClick: function () {
+          copy("You are the Manager Agent. The owner wants to open the \"" + d.name + "\" department (currently LOCKED in departments/registry.json).\n\n" +
+            "Follow MANAGER-GUIDE.md (new department) and OFFICE.md \u00a717 in order:\n" +
+            "1. Ask the owner the four questions: what does this team produce, how many agents, what tools/access, and what is the first batch of tasks.\n" +
+            "2. Write departments/" + d.id + "/PLAN.md with the agreed plan.\n" +
+            "3. Create the stations (agent-XX folders with current.md, log.md, roster.md, handover.md) and training/roles/<role>.md.\n" +
+            "4. Flip status to OPEN in departments/registry.json and add the stations to board.json.\n" +
+            "5. Write the first 10 self-contained task files with new ids, each with a stop condition the owner can open on his phone.\n" +
+            "6. Rebuild the app so the new room lights up, then give me the paste prompt for each new agent.",
+"Department prompt copied — paste it into the manager chat");
+        }
+      });
+    } else {
+      buttons.push({
+        label: "Open plan →", kind: "primary",
+        onClick: function () { window.open(REPO + "/blob/main/" + (d.overview || ""), "_blank"); }
+      });
+    }
+    buttons.push({ label: "Close", kind: "ghost", onClick: closeSheet });
+    openSheet((d.status === "LOCKED" ? "🔒 " : d.status === "EXTERNAL" ? "🔗 " : "🏢 ") + d.name,
+      "department · " + d.status.toLowerCase(), rows, buttons);
+  }
+
+  function openPowerSheet() {
+    var p = DATA.power || {};
+    var mgr = DATA.manager_desk || {};
+    var rows = [
+      ["Lights", p.state === "LIVE" ? "ON — something is working" : p.state === "QUIET" ? "DIM — recent activity, nothing now" : "OFF — the office is closed"],
+      ["Newest activity", p.newest_activity_label || "—"],
+      ["Why", p.why || "—"],
+      ["Rule", "On when an agent logs, the manager runs, or the app heartbeat is fresh. Off after " + (p.quiet_minutes || 90) + " minutes of silence."],
+      ["Manager desk", (mgr.active ? "awake — " : "asleep — ") + (mgr.last_label || "unknown")],
+      ["Manager next action", mgr.next_action || "—"]
+    ];
+    var buttons = [{
+      label: "▶︎ Copy manager prompt (open the office)", kind: "primary",
+      onClick: function () { copy(managerPrompt(), "Manager prompt copied — paste it into the manager chat"); }
+    }, { label: "Close", kind: "ghost", onClick: closeSheet }];
+    openSheet(p.state === "CLOSED" ? "🌙 Office closed" : "💡 Office power", "the lights follow real activity", rows, buttons);
+  }
+
+  function managerPrompt() {
+    return "You are the Manager Agent for the CENTUM AI Office. Repository: " + REPO + ".\n\n" +
+      "Run your full workflow now (phases are in MANAGER-GUIDE.md):\n" +
+      "PHASE 0 - read board.json, the newest report in reports/daily/, all agents/*/log.md, and OFFICE.md section 2 (is the freeze still on?) plus the phase field (PLANNING?). Say \"Manager online. Reading office state...\" then describe what you found in 3 lines.\n" +
+      "PHASE 1 - audit all five stations. For any status ACTIVE with no log for over 30 minutes set is_at_risk, and over 60 minutes replace the occupant with: python3 tools/handover.py --slot agent-0X --reason \"...\". For REVIEW, verify on Drive with a list call and pass or fail each checklist item with evidence.\n" +
+      "PHASE 2 - if the phase is PLANNING, do not assign tasks; spend the run on the plan, the audit and the app. If the phase is WORKING, assign the next unblocked task to every free station and put the paste prompt in OWNER ACTIONS.\n" +
+      "PHASE 4 - write or update reports/daily/<today>.md, rebuild the app (build_office_data.py, build_standalone.py, then node tools/smoke_test_app.js - it must pass), and refresh reports/READY_MANIFEST.md.\n" +
+      "PHASE 5 - post the summary: health, quick status, and numbered owner actions that are copy-paste ready.\n\n" +
+      "Hard rules: never produce student content yourself; never paste the Apps Script secret anywhere; never delete Drive content; nothing reaches a student-facing folder without the page-1 subject gate; a station is never deleted, its occupant is replaced and the successor continues from the handover.";
+  }
+
+  /* ------------------------------------------------------------------ plan screen */
+  function screenPlan() {
+    var s = el("div", "screen");
+    s.appendChild(el("div", "banner info", "<div class='t'>Planning phase</div><div class='muted'>" +
+      esc(DATA.phase_note || "The owner asked to plan before adding tasks.") + "</div>"));
+    var c = el("div", "card");
+    c.innerHTML = "<div class='tiny'>WHERE WE ARE</div><ul class='md' style='margin-top:6px'>" +
+      "<li>Round-1 tasks: <b>" + DATA.counts.archived_tasks + "</b> files parked in <code>tasks/archive/2026-09-23-round1/</code> — nothing was cancelled</li>" +
+      "<li>Stations ready: <b>" + DATA.slots.length + "</b> in the Harvest room</li>" +
+      "<li>Departments open: <b>" + DATA.counts.departments_open + "</b> · locked: <b>" + DATA.counts.departments_locked + "</b></li>" +
+      "<li>Kept from the 4-day team: rules, techniques, the Drive tree, the gate requirement, this office app</li></ul>";
+    s.appendChild(c);
+
+    s.appendChild(el("div", "section-title", "The four questions to answer together"));
+    var q = el("div", "card");
+    q.innerHTML = "<ol class='md' style='margin:0;padding-left:18px'>" +
+      "<li>What is the first thing a parent must be able to open — one subject, one class, one shelf?</li>" +
+      "<li>Which lane produces it, and with how many stations?</li>" +
+      "<li>What is the stop condition you can check on your phone in 30 seconds?</li>" +
+      "<li>What is honestly out of scope for the first two weeks?</li></ol>";
+    s.appendChild(q);
+
+    s.appendChild(el("div", "section-title", "Archived round-1 tasks <span class='count'>" + DATA.counts.archived_tasks + "</span>"));
+    (DATA.archive || []).forEach(function (round) {
+      var card = el("div", "card");
+      card.innerHTML = "<div class='row'><b class='grow'>" + esc(round.round) + "</b><span class='chip'>" + round.count + " tasks</span></div>" +
+        "<div class='tiny' style='margin-top:5px'>Parked, not cancelled. Their useful knowledge is listed in the folder README.</div>";
+      var b = el("button", "btn ghost sm", "Open the folder on GitHub");
+      b.style.marginTop = "9px";
+      b.onclick = function () { window.open(REPO + "/tree/main/" + round.path, "_blank"); };
+      card.appendChild(b);
+      s.appendChild(card);
+    });
+
+    s.appendChild(el("div", "section-title", "Talk to the manager"));
+    var mp = el("div", "card");
+    mp.innerHTML = "<div class='muted'>Copy this and paste it into the manager chat to plan the first round.</div>";
+    var mb = el("button", "btn primary", "Copy planning prompt");
+    mb.style.marginTop = "10px";
+    mb.onclick = function () {
+      copy("You are the Manager Agent. Phase: PLANNING. Repository: " + REPO + ".\n\n" +
+        "The owner wants to plan the first real round of work before any tasks exist. Do not create tasks yet.\n\n" +
+        "1. Read PLAN.md, OFFICE.md (all of it), the archived round-1 tasks in tasks/archive/2026-09-23-round1/README.md, departments/registry.json and reports/READY_MANIFEST.md.\n" +
+        "2. Report what already exists and is usable: the SSLC Science STATE files, the DGE bundles, the Drive tree, the proven techniques, and the one thing the office still cannot do (the page-1 gate does not exist yet).\n" +
+        "3. Propose ONE first round: one subject and class, one lane, at most three stations, one stop condition the owner can open on his phone in 30 seconds. State exactly what will be on Drive when the round is done, and what will NOT be attempted.\n" +
+        "4. Ask the owner only the questions you genuinely cannot answer from the repository, as a numbered list of at most four, each with your recommended default.\n" +
+        "5. Update PLAN.md with the agreed plan once the owner answers, then rebuild the app.",
+        "Planning prompt copied — paste it into the manager chat");
+    };
+    mp.appendChild(mb);
+    s.appendChild(mp);
+    return s;
   }
 
   function agentRow(a) {
+    var v = a.visual || {};
     var card = el("div", "card tap");
     card.innerHTML =
       "<div class='row'>" +
         "<div class='agent-avatar'>" + esc(a.number) + "</div>" +
         "<div class='grow col'>" +
-          "<div class='row'><span class='grow truncate' style='font-weight:650'>" + esc(a.task_id || a.role) + "</span>" +
-          "<span class='chip' style='color:" + a.status_color + "'>" + esc(a.status_label) + "</span></div>" +
-          "<div class='tiny truncate'>" + esc(a.task_name || a.role) + "</div>" +
+          "<div class='row'><span class='grow truncate' style='font-weight:650'>" +
+            esc(a.task_id || shortLane(a)) + (a.generation > 1 ? " <span class='tiny'>gen " + a.generation + "</span>" : "") +
+          "</span><span class='chip' style='color:" + (v.tone === 'red' ? 'var(--red)' : v.tone === 'amber' ? 'var(--amber)' : 'var(--green)') + "'>" +
+            esc(v.label || a.status_label) + "</span></div>" +
+          "<div class='tiny truncate'>" + esc(a.task_name || a.task_note || a.role) + "</div>" +
         "</div>" +
-        "<div class='dot " + (a.status === "ACTIVE" ? "pulse" : "") + "' style='background:" + a.status_color + "'></div>" +
+        "<div class='dot " + (v.state === "working" ? "pulse" : "") + "' style='background:" +
+          (v.tone === 'red' ? 'var(--red)' : v.tone === 'amber' ? 'var(--amber)' : v.tone === 'grey' ? 'var(--muted-2)' : 'var(--green)') + "'></div>" +
       "</div>" +
-      "<div class='bar'><i style='width:" + (a.progress_percent || 0) + "%;background:" + a.status_color + "'></i></div>" +
+      "<div class='bar'><i style='width:" + (a.progress_percent || 0) + "%'></i></div>" +
       "<div class='row' style='margin-top:7px'><span class='tiny grow truncate'>" +
         esc(a.last_log_line || "no log yet") + "</span><span class='tiny'>" + esc(a.last_log_age_label) + "</span></div>";
-    card.onclick = function () { location.hash = "#/agent/" + a.id; };
+    card.onclick = function () { openDeskSheet(a.id); };
     return card;
+  }
+
+  function linkCard(t, sub, hash) {
+    var c = el("div", "card tap", "<div class='row'><div class='grow'><b>" + esc(t) +
+      "</b><div class='tiny'>" + esc(sub) + "</div></div><span class='muted'>›</span></div>");
+    c.onclick = function () { location.hash = hash; };
+    return c;
   }
 
   /* ------------------------------------------------------------------ agents */
@@ -565,7 +828,7 @@
   /* ------------------------------------------------------------------ router */
   var ROUTES = {
     office: screenOffice, agents: screenAgents, tasks: screenTasks, reports: screenReports,
-    help: screenHelp, files: screenFiles, work: screenWork
+    help: screenHelp, files: screenFiles, work: screenWork, plan: screenPlan
   };
 
   function render() {
@@ -577,7 +840,7 @@
     if (route === "agent") { node = screenAgent(arg); state.tab = "agents"; }
     else if (route === "task") { node = screenTask(arg); state.tab = "tasks"; }
     else if (route === "report") { node = screenReport(arg); state.tab = "reports"; }
-    else { node = (ROUTES[route] || screenOffice)(); state.tab = ROUTES[route] ? route : "office"; }
+    else { node = (ROUTES[route] || screenOffice)(); state.tab = (route === "plan" || route === "work" || route === "files") ? "help" : (ROUTES[route] ? route : "office"); }
     view.innerHTML = "";
     view.appendChild(node);
     paintNav();

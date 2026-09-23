@@ -22,8 +22,12 @@ For each slot in `board.json`:
 
 **status ACTIVE** — read `log.md`, find the last entry timestamp *in the log* (you cannot read clocks inside other sessions; you judge by wall-clock time of this run vs the last logged stamp):
 - last entry < 30 min ago → working, no action
-- 30–60 min ago → set `is_at_risk: true`
-- > 60 min ago → set `status: IDLE`, `is_at_risk: true`
+- 30–60 min ago → set `is_at_risk: true` (the office app shows a yawning agent in amber)
+- > 60 min ago → set `status: IDLE`, `is_at_risk: true`, and **replace the occupant** (see below):
+  ```
+  python3 tools/handover.py --slot agent-0X --reason "no log entry for NN minutes"
+  ```
+  That writes the handover + roster row and stages the successor. Then put the successor's start prompt in OWNER ACTIONS ("agent-01 died at 14:05; its successor agent-01-g2 is staged and its prompt is below").
 - Write into their `current.md`:
   ```
   MANAGER CHECK [timestamp]: No log entry for [X] minutes.
@@ -32,6 +36,8 @@ For each slot in `board.json`:
   If blocked: set STATUS: BLOCKED and write your exact blocker (format in OFFICE.md §9).
   ```
 - **Caveat, state it in the report:** a paused Arena session logs nothing while it waits for owner input. If an agent was waiting on an owner paste, do not call it idle — call it WAITING-ON-OWNER and list it as an owner action.
+
+**status STAGED (new occupant after a replacement)** — read the newest block of `agents/<station>/handover.md` and confirm the successor's `current.md` carries the same task, stop condition and resume point. Put the successor's start prompt in OWNER ACTIONS. Do not activate a station during the PLANNING phase unless the owner has approved that specific work.
 
 **status BLOCKED** — read the blocker.
 - Resolvable from this repo (`training/*`, debrief knowledge, a technique in `OFFICE.md`)? → write the answer into their `current.md`, set `ACTIVE`, note it in `log.md`.
@@ -60,7 +66,9 @@ For each slot in `board.json`:
 
 **status EMPTY / STAGED** → candidate for assignment in Phase 2.
 
-## PHASE 2 — ASSIGN NEW TASKS
+## PHASE 2 — ASSIGN NEW TASKS (suspended while `phase == "PLANNING"`)
+
+If `board.json` says `"phase": "PLANNING"`, skip assignment entirely. Keep stations staged, keep the queue empty, and spend the run on: the audit, the replacements, the app, and **the plan** (`PLAN.md`). Assignment resumes the moment the owner approves the plan — then write fresh task files with new ids (never re-queue the archived ones blindly).
 
 For every EMPTY or newly-DONE slot, in this order of preference:
 1. A continuation/repair task (existing work made usable) before any new-creation task.
@@ -93,6 +101,9 @@ Rules for the report:
 - No secrets. No Apps Script SECRET, ever.
 
 ## PHASE 4b — REBUILD THE VIRTUAL OFFICE APP (do this before reporting)
+
+The app now draws the office as a **top-view pixel room**: stations with monitors, lights on when something is alive, agents asleep when they are not, walk-in animations for replacements, and locked rooms for departments that are not open yet. It reads `departments/registry.json` + `board.json` power settings, so opening a department or replacing an agent changes the picture with no app code edits.
+
 
 The owner reads the app, not GitHub. After writing the daily report, refresh its data:
 
@@ -165,6 +176,8 @@ Health rules: **GOOD** = no blockers, ≥1 task moved forward, no failed reviews
 **The same quality failure appears twice** → update `training/quality-checklist.md` and `content-standards.md` to close it, add a line to the report: *what changed and why*. Keep an "Updated" note at the top of the changed document.
 
 **A technique from the debrief stops working** → document the failure in the daily report (what it was supposed to do, exact error), create a debugging task with full context + the fallback to use meanwhile, and assign it to the QA lane (agent-05) unless it is a Drive bridge issue, which goes to the FACTORY lane (agent-04).
+
+**An agent dies / goes silent** → replace the occupant, don't restart the lane: `python3 tools/handover.py --slot agent-0X --reason "..."`. The successor reads `handover.md`, confirms on Drive what is done, and continues. Report the replacement in the daily report ("agent-03 → agent-03-g2 at 14:10, reason: 92 min silence").
 
 **The owner wants something changed in the app** → it is a task for a worker slot (QA/CENTUM lane) unless it is a one-line data fix. Write the task with the exact screen, the exact change, and the smoke test as the stop condition. Keep the app read-only and secret-free; a feature that requires writing to Drive does not belong in the app.
 

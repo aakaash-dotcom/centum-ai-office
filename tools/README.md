@@ -23,6 +23,19 @@ The Arena workspace wipes PDFs and (in the previous team's case) whole `papers/`
 
 **Scripts that were never built (that is the actual gap):** the page-1 subject gate. Everything else in the office waits on it.
 
+## 1b. Tools built by this Manager (2026-09-23)
+
+| Tool | Role | Run |
+|---|---|---|
+| `build_office_data.py` | Compiles board.json + agent logs + tasks + reports into `app/data/office.json` (and the `.js` fallback). Also generates the per-slot Arena paste prompts. | `python3 tools/build_office_data.py` |
+| `build_standalone.py` | Packs app + data into one shareable file `app/index.standalone.html` | `python3 tools/build_standalone.py` |
+| `serve_office.py` | Serves the app on `0.0.0.0:4173` for phone/LAN/preview use | `python3 tools/serve_office.py` |
+| `smoke_test_app.js` | 30 checks that render every screen and every desk state against a fake DOM (no browser needed) | `node tools/smoke_test_app.js` |
+| `handover.py` | **Replaces a stopped agent at a station** — writes the handover, roster row, REPLACED/START log lines, a fresh `current.md` for the new generation, bumps `board.json`, rebuilds the app | `python3 tools/handover.py --slot agent-01 --reason "no log for 95 min"` |
+| `md2html.py` | Dependency-free markdown renderer for every document in the app | imported |
+| `make_icons.py` | Draws the app icons (pure stdlib PNG writer) | `python3 tools/make_icons.py` |
+| `render_office_preview.js` + `preview_png.py` | Record one pixel-office frame and rasterize it to a PNG for eyeballing (the sandbox has no browser) | see `app/README.md` §5 |
+
 ## 2. DGE page map — the trusted source for public papers
 
 Source: `https://apply1.tndge.org/dge-notification/questbank` — all-subject bundles, downloaded to `COLLECT/GOVT_PYQ/`.

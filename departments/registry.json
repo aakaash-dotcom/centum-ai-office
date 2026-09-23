@@ -1,0 +1,66 @@
+{
+  "_note": "The office is a floor plan. Each department is a room; each room holds stations; each station is occupied by an agent that can be replaced. The app draws this file. The Manager edits it when a department opens.",
+  "_updated": "2026-09-23T14:04:39Z",
+  "departments": [
+    {
+      "id": "harvest",
+      "name": "Harvest",
+      "room": "main",
+      "status": "OPEN",
+      "opened": "2026-09-23",
+      "purpose": "Everything the student reads or prints: public papers, models, banks, notes, print files, QA.",
+      "stations": [
+        "agent-01",
+        "agent-02",
+        "agent-03",
+        "agent-04",
+        "agent-05"
+      ],
+      "manager_desk": true,
+      "unlock_condition": null,
+      "overview": "departments/content/overview.md"
+    },
+    {
+      "id": "marketing",
+      "name": "Marketing",
+      "room": "locked-1",
+      "status": "LOCKED",
+      "opened": null,
+      "purpose": "Getting the app in front of parents: reels, WhatsApp campaigns, school visits, local ads, referral loop.",
+      "stations": [],
+      "manager_desk": false,
+      "unlock_condition": "The Harvest room is producing gated files and the app is live for parents.",
+      "overview": "departments/marketing/PLAN.md"
+    },
+    {
+      "id": "video",
+      "name": "Video & Live",
+      "room": "locked-2",
+      "status": "LOCKED",
+      "opened": null,
+      "purpose": "Centum's live classes and recordings — the shelf the owner can charge for.",
+      "stations": [],
+      "manager_desk": false,
+      "unlock_condition": "One test opens and one recording opens (the Centum gate in OFFICE.md §6).",
+      "overview": "departments/video/PLAN.md"
+    },
+    {
+      "id": "website",
+      "name": "Website (Qwen lane)",
+      "room": "external",
+      "status": "EXTERNAL",
+      "opened": "2026-09-22",
+      "purpose": "StudyHub UI, chips, catalogue.json, checkout. Not staffed by this office.",
+      "stations": [],
+      "manager_desk": false,
+      "unlock_condition": "Consumes reports/READY_MANIFEST.md only.",
+      "overview": "reports/READY_MANIFEST.md"
+    }
+  ],
+  "power": {
+    "live_minutes": 20,
+    "quiet_minutes": 90,
+    "closed_minutes": 90,
+    "_note": "The app compares the newest of (agent logs, manager run, heartbeat file, build time) against these to decide whether the office lights are on."
+  }
+}

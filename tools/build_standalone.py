@@ -20,6 +20,7 @@ OUT = APP / "index.standalone.html"
 html = (APP / "index.html").read_text(encoding="utf-8")
 css = (APP / "styles.css").read_text(encoding="utf-8")
 js = (APP / "app.js").read_text(encoding="utf-8")
+pixel = (APP / "office.js").read_text(encoding="utf-8")
 data = json.loads((APP / "data" / "office.json").read_text(encoding="utf-8"))
 
 # strip the external assets, inline everything
@@ -32,11 +33,14 @@ bundle = (
     "window.CENTUM_OFFICE_DATA = "
     + json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     + ";\n"
+    + pixel          # pixel office engine first, app.js second
+    + "\n"
     + js
 )
 bundle = bundle.replace("</script>", "<\\/script>")
 html = re.sub(
-    r'<script src="data/office\.data\.js"[^>]*></script>\s*<script src="app\.js"></script>',
+    r'<script src="office\.js"></script>\s*<script src="data/office\.data\.js"[^>]*></script>\s*'
+    r'<script src="app\.js"></script>',
     lambda _m: f"<script>\n{bundle}\n</script>",  # lambda: keep JS backslashes literal
     html,
 )
