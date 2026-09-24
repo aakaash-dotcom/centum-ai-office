@@ -1,0 +1,53 @@
+# One ad-hoc read-only Drive call — for when an agent needs a single listing.
+#
+# The owner (or an agent with GitHub access) runs it from Actions -> "Drive call" and
+# reads the answer in drive/results/<request-id>.json, committed back to the repo.
+# Actions allowed: info · list · list_folders · search · ping. Nothing can modify Drive.
+name: Drive call
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "info | list | list_folders | search | ping"
+        type: choice
+        options: [list, list_folders, info, search, ping]
+        default: list_folders
+      path:
+        description: "Drive path (leave empty for the root) or folder id"
+        type: string
+        default: ""
+      request_id:
+        description: "short name for the result file"
+        type: string
+        default: "call"
+
+permissions:
+  contents: write
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Call Drive (read-only)
+        env:
+          APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
+          APPS_SCRIPT_SECRET: ${{ secrets.APPS_SCRIPT_SECRET }}
+        run: |
+          python3 tools/drive_call.py --action "${{ inputs.action }}" --path "${{ inputs.path }}" \
+            --out "drive/results/${{ inputs.request_id }}.json" | tee /tmp/call.log
+
+      - name: Commit the result
+        run: |
+          git config user.name  "centum-drive-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add "drive/results/${{ inputs.request_id }}.json"
+          git diff --cached --quiet || git commit -m "Drive call result: ${{ inputs.action }} ${{ inputs.path }} (${{ inputs.request_id }})"
+          git push || true
+
+      - name: Summary
+        if: always()
+        run: tail -n 30 /tmp/call.log >> "$GITHUB_STEP_SUMMARY" || true

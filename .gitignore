@@ -11,3 +11,14 @@ _harvest/
 
 # local ledgers that are machine-specific (the shared ones live in ledgers/)
 wm_local.json
+
+# Apps Script client files — the secret and the /exec URL must NEVER enter this public repo
+drive_client*.py
+bridge.py
+drive_upload.py
+*.credentials.json
+token.json
+.env
+.env.*
+# keep drive/results tracked (workflow commits results back) but ignore local scratch
+!drive/results/.gitkeep

@@ -53,7 +53,7 @@
     "files_produced_total": 6,
     "files_produced_total_note": "6 files carried in from the previous team: 5 x SSLC Science Annual STATE 2022-2026 (high trust, awaiting office gate confirmation) + 1 diagram PDF (not to spec). 0 files produced by this office so far.",
     "agents_active": 0,
-    "agents_total": 5,
+    "agents_total": 10,
     "tasks_archived": 20,
     "tasks_archived_note": "round-1 task files parked in tasks/archive/2026-09-23-round1/ pending the new plan"
   },
@@ -92,7 +92,7 @@
             "reason": null
           },
           "replacements": [],
-          "current_task_note": "no task assigned — planning phase"
+          "current_task_note": "no task assigned \u2014 planning phase"
         },
         "agent-02": {
           "status": "STAGED",
@@ -118,7 +118,7 @@
             "reason": null
           },
           "replacements": [],
-          "current_task_note": "no task assigned — planning phase"
+          "current_task_note": "no task assigned \u2014 planning phase"
         },
         "agent-03": {
           "status": "STAGED",
@@ -148,7 +148,7 @@
             "reason": null
           },
           "replacements": [],
-          "current_task_note": "no task assigned — planning phase"
+          "current_task_note": "no task assigned \u2014 planning phase"
         },
         "agent-04": {
           "status": "STAGED",
@@ -174,7 +174,7 @@
             "reason": null
           },
           "replacements": [],
-          "current_task_note": "no task assigned — planning phase"
+          "current_task_note": "no task assigned \u2014 planning phase"
         },
         "agent-05": {
           "status": "STAGED",
@@ -201,7 +201,133 @@
             "reason": null
           },
           "replacements": [],
-          "current_task_note": "no task assigned — planning phase"
+          "current_task_note": "no task assigned \u2014 planning phase"
+        },
+        "agent-06": {
+          "status": "STAGED",
+          "role": "DRIVE \u2014 Drive inventory, bridge upkeep",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T16:10Z | STAGED | slot created by Manager; role DRIVE",
+          "last_log_time": "2026-09-23T16:10Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [
+            "TASK-101"
+          ],
+          "occupant": {
+            "id": "agent-06",
+            "generation": 1,
+            "since": "2026-09-23T16:10:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned \u2014 planning phase"
+        },
+        "agent-07": {
+          "status": "STAGED",
+          "role": "MODEL \u2014 additional models lane",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T16:10Z | STAGED | slot created by Manager; role MODEL2",
+          "last_log_time": "2026-09-23T16:10Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [],
+          "occupant": {
+            "id": "agent-07",
+            "generation": 1,
+            "since": "2026-09-23T16:10:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned \u2014 planning phase"
+        },
+        "agent-08": {
+          "status": "STAGED",
+          "role": "NOTES \u2014 complete / topper / last-minute packs",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T16:10Z | STAGED | slot created by Manager; role NOTES",
+          "last_log_time": "2026-09-23T16:10Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [
+            "TASK-013",
+            "TASK-014",
+            "TASK-015"
+          ],
+          "occupant": {
+            "id": "agent-08",
+            "generation": 1,
+            "since": "2026-09-23T16:10:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned \u2014 planning phase"
+        },
+        "agent-09": {
+          "status": "STAGED",
+          "role": "ONEWORD / QBANK \u2014 additional banks",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T16:10Z | STAGED | slot created by Manager; role QBANK2",
+          "last_log_time": "2026-09-23T16:10Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [],
+          "occupant": {
+            "id": "agent-09",
+            "generation": 1,
+            "since": "2026-09-23T16:10:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned \u2014 planning phase"
+        },
+        "agent-10": {
+          "status": "STAGED",
+          "role": "AUDIT \u2014 verifies reports against ledgers",
+          "task_id": null,
+          "task_name": null,
+          "started": null,
+          "last_log_entry": "2026-09-23T16:10Z | STAGED | slot created by Manager; role AUDIT",
+          "last_log_time": "2026-09-23T16:10Z",
+          "progress_percent": 0,
+          "files_produced": 0,
+          "sessions_count": 0,
+          "is_at_risk": false,
+          "blocker": null,
+          "lane_backlog": [],
+          "occupant": {
+            "id": "agent-10",
+            "generation": 1,
+            "since": "2026-09-23T16:10:00Z",
+            "replaces": null,
+            "reason": null
+          },
+          "replacements": [],
+          "current_task_note": "no task assigned \u2014 planning phase"
         }
       }
     }
@@ -237,28 +363,28 @@
       "Manager Agent, Phase 4b of every run",
       "GitHub Action .github/workflows/rebuild-office-app.yml on push"
     ],
-    "smoke_test": "node tools/smoke_test_app.js — 18 checks, renders every screen against a fake DOM",
+    "smoke_test": "node tools/smoke_test_app.js \u2014 18 checks, renders every screen against a fake DOM",
     "added": "2026-09-23",
     "view": "top-down pixel office with rooms, stations, lights, sleeping agents and walk-in replacements",
     "departments_registry": "departments/registry.json",
     "power": {
       "live_minutes": 20,
       "quiet_minutes": 90,
-      "rule": "Lights ON when something is alive: a fresh agent log, a manager run, or the local app heartbeat. Lights OFF (office closed, every agent asleep) when the newest activity is older than quiet_minutes — that is the 'laptop off / office closed' state."
+      "rule": "Lights ON when something is alive: a fresh agent log, a manager run, or the local app heartbeat. Lights OFF (office closed, every agent asleep) when the newest activity is older than quiet_minutes \u2014 that is the 'laptop off / office closed' state."
     },
     "agent_visuals": {
       "working": "sitting, typing, monitor on, progress bar above the desk, efficiency meter on the desk edge",
-      "at_risk": "yawning at the desk, amber warning — log is between 30 and 60 minutes old",
-      "sleeping_dead": "asleep with red Zzz — over 60 minutes of silence while marked working: needs a replacement (handover.py)",
-      "sleeping_off": "asleep with grey Zzz — staged, never started: needs the owner to paste its start prompt",
-      "blocked": "standing with a red exclamation — the blocker text is on the desk card",
-      "review": "holding a paper with an amber question mark — waiting on the Manager",
+      "at_risk": "yawning at the desk, amber warning \u2014 log is between 30 and 60 minutes old",
+      "sleeping_dead": "asleep with red Zzz \u2014 over 60 minutes of silence while marked working: needs a replacement (handover.py)",
+      "sleeping_off": "asleep with grey Zzz \u2014 staged, never started: needs the owner to paste its start prompt",
+      "blocked": "standing with a red exclamation \u2014 the blocker text is on the desk card",
+      "review": "holding a paper with an amber question mark \u2014 waiting on the Manager",
       "done": "sparkles and a gold star for the run's top producer",
       "vacant": "empty chair, desk lamp off, VACANT sign"
     },
-    "stations_and_replacements": "OFFICE.md §15 — a station never dies; its occupant is replaced and the successor continues from the handover",
+    "stations_and_replacements": "OFFICE.md \u00a715 \u2014 a station never dies; its occupant is replaced and the successor continues from the handover",
     "replacement_tool": "python3 tools/handover.py --slot agent-01 --reason \"...\""
   },
   "phase": "PLANNING",
-  "phase_note": "Owner asked for a fresh start: plan first, prepare the setup, then add tasks. Round-1 tasks are archived in tasks/archive/2026-09-23-round1/ and are NOT cancelled — they are parked until the plan is agreed. No new assignments until the plan is approved."
+  "phase_note": "Owner asked for a fresh start: plan first, prepare the setup, then add tasks. Round-1 tasks are archived in tasks/archive/2026-09-23-round1/ and are NOT cancelled \u2014 they are parked until the plan is agreed. No new assignments until the plan is approved."
 }

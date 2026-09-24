@@ -587,9 +587,6 @@ def build() -> dict:
             "parked": board.get("parked", []),
             "existing_work": board.get("existing_work_summary", {}),
         },
-        "departments": departments,
-        "registry": registry,
-        "registryLocks": [d for d in registry if d.get("status") != "OPEN"],
         "manager_desk": {
             "active": bool(power["minutes"] is not None and power["minutes"] <= int(vcfg.get("live_minutes", 20))),
             "last_run": (board.get("manager") or {}).get("last_run", ""),
@@ -599,7 +596,13 @@ def build() -> dict:
         "power": power,
         "phase": board.get("phase", "WORKING"),
         "phase_note": board.get("phase_note", ""),
-        "archive": archive,
+        # Archive is intentionally compact: counts + a few titles per group.
+        # Full task text lives in the repo — per §3 "app holds only the office".
+        "archive": [{"round": a["round"], "count": a["count"],
+                     "tasks": [{"id": t["id"], "title": t.get("title", ""),
+                                "lane": t.get("lane", "")}
+                               for t in (a.get("tasks") or [])[:5]]}
+                    for a in archive],
         "slots": all_slots,
         "tasks": tasks,
         "counts": {
@@ -607,19 +610,19 @@ def build() -> dict:
             "active": len(tasks["active"]),
             "review": len(tasks["review"]),
             "done": len(tasks["done"]),
+            "tasks_done_today": len(tasks["done"]),
             "agents": len(all_slots),
             "working": len(working),
             "blocked": len(blocked),
             "owner_actions": len(actions),
             "archived_tasks": sum(a["count"] for a in archive),
-            "departments_open": len([d for d in registry if d.get("status") == "OPEN"]),
-            "departments_locked": len([d for d in registry if d.get("status") == "LOCKED"]),
             "sleeping": len([s_ for s_ in all_slots if s_["visual"]["state"].startswith("sleeping")]),
             "needs_replacement": len([s_ for s_ in all_slots if s_["visual"]["state"] == "sleeping_dead"]),
         },
-        "reports": reports,
+        # Reports and the manifest live in the repo (reports/, ledgers/).
+        # We only carry an index here so the UI can show that reports exist.
+        "reports_index": [{"date": r.get("date"), "title": r.get("title")} for r in reports],
         "owner_actions": actions,
-        "manifest": manifest,
     }
 
 

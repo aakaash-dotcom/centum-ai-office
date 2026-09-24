@@ -426,3 +426,56 @@ a:active { opacity: 0.7; }
 /* demo / preview badge — clearly not the real office */
 .pixel-power-DEMO { border-color: rgba(91,141,239,0.55); }
 .pixel-power-DEMO b { color: #9dbcff; }
+
+/* v2 flat-office additions */
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.agent-box {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 6px 6px;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition: transform 0.08s, border-color 0.2s;
+}
+.agent-box:active { transform: scale(0.97); }
+.agent-box .ab-top { display: flex; justify-content: space-between; align-items: center; font-size: 16px; }
+.agent-box .ab-num { font-weight: 700; font-variant-numeric: tabular-nums; }
+.agent-box .ab-state { font-size: 14px; }
+.agent-box .ab-lane { font-weight: 700; font-size: 12px; margin-top: 2px; color: var(--fg); letter-spacing: 0.02em; }
+.agent-box .ab-role { font-size: 10.5px; line-height: 1.2; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-box.state-working  { border-color: rgba(47,208,122,0.55); }
+.agent-box.state-at_risk  { border-color: rgba(245,185,66,0.55); }
+.agent-box.state-blocked  { border-color: rgba(255,92,92,0.55); }
+.agent-box.state-review   { border-color: rgba(245,185,66,0.4); }
+.agent-box.state-sleeping_dead { border-color: rgba(255,92,92,0.6); box-shadow: 0 0 0 1px rgba(255,92,92,0.25) inset; }
+
+.task-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.task-cell {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 6px;
+  text-align: center;
+}
+.tc-num { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+.tc-lbl { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.task-row { padding: 8px 4px; border-bottom: 1px solid var(--line); }
+.task-row:last-child { border-bottom: none; }
+.task-body { margin-top: 6px; font-size: 13px; color: var(--fg-soft); }
+.pill-queue  { background: rgba(91,141,239,0.18); color: #9dbcff; }
+.pill-active { background: rgba(47,208,122,0.18); color: #7be6a6; }
+.pill-review { background: rgba(245,185,66,0.2);  color: #f6c96d; }
