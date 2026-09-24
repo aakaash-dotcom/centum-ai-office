@@ -5,7 +5,8 @@ Walks:
     root
     one level down from root (mode=level1)
     depth 2 only inside "Question Papers/" and "StudyHub/"
-    Question Papers/ is NEVER recursed deeper (list it once; full tree times out)
+    Question Papers/ is listed ONCE and each IMMEDIATE child (10th, 12th, ...) is
+    listed ONCE. Never a tree, never grandchildren (the full tree times out).
 
 Then re-verifies every id already present in ledgers/drive_map.json BY ID,
 labelling each with its path so stale entries are obvious.
@@ -223,18 +224,22 @@ def walk(mode: str, budget: int) -> Walker:
                 print(f"  · budget exhausted at {name}")
                 return w
             # depth 2 (one level INSIDE the top-level folder, i.e. root depth 2)
-            # is allowed for StudyHub/. Question Papers/ is listed once at
-            # level1 (its files + subfolder names are recorded) but NEVER
-            # recursed — the full tree times out. Other folders stop at level1.
-            if name not in DEEP_EXCEPTIONS or name in NO_RECURSE:
+            # is allowed for StudyHub/ and Question Papers/. For Question Papers/
+            # each immediate child (10th, 12th, ...) is listed exactly once and
+            # its own subfolders are only NAMED, never opened — no grandchildren,
+            # never a tree. Other folders stop at level1.
+            if name not in DEEP_EXCEPTIONS:
                 continue
+            tag = "qp-child" if name in NO_RECURSE else "depth2"
+            seen_children: set = set()
             for sub2 in info["sub_entries"]:
                 s2name = str(sub2.get("name", ""))
                 s2id = sub2.get("id")
-                if not s2id:
+                if not s2id or s2id in seen_children:
                     continue
+                seen_children.add(s2id)
                 try:
-                    w.list_folder(f"{name}/{s2name}", folder_id=s2id, listed_by="depth2")
+                    w.list_folder(f"{name}/{s2name}", folder_id=s2id, listed_by=tag)
                 except BudgetExhausted as be:
                     w.skipped.append(f"{name}/{s2name} ({be})")
                     print(f"  · budget exhausted at {name}/{s2name}")
@@ -370,7 +375,8 @@ def write_report(w: Walker) -> None:
     if not_listed_deep:
         lines.append("- The following level-1 folders were NOT walked deeper (per policy): "
                      + ", ".join(f"`{p}`" for p in not_listed_deep) + ".\n")
-    lines.append("- `Question Papers/` was listed once but not recursed (full walk times out).\n")
+    lines.append("- `Question Papers/` was listed once and each immediate child (10th, 12th, ...) once; "
+                 "their subfolders are named but NOT opened (no grandchildren - the full walk times out).\n")
     lines.append("- `check-subject` means a PDF is present but no agent session has opened it "
                  "to verify the subject on page 1 — run the page-1 gate before shipping.\n")
 

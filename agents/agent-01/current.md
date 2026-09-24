@@ -11,6 +11,27 @@ STOP CONDITION: 5 files in StudyHub/TN/10th/Science/PYQ/Annual/, each opening on
 
 ---
 
+## Queued by Manager 2026-09-24 — verify the Drive inventory (runs BEFORE TASK-002)
+Standing order: OFFICE.md §20 (proper AND faster). Read-only — no Drive writes.
+
+Trigger: the `centum-drive-bot` commit from Actions → "Drive inventory" (mode level1, budget 200)
+lands `reports/DRIVE_INVENTORY.md`, `ledgers/drive_inventory.csv`, `ledgers/drive_map.json`.
+
+Do:
+1. For every folder row in `reports/DRIVE_INVENTORY.md`, find the matching row in
+   `ledgers/drive_inventory.csv` (folder_path, folder_id, files, subfolders) and confirm the
+   folder_id is a key in `ledgers/drive_map.json` with the same path.
+2. For every CSV row, confirm it appears in the report. The CSV is the truth when they disagree.
+3. Confirm `Question Papers/` appears once, each immediate child (10th, 12th, ...) once, and
+   no `Question Papers/<child>/<grandchild>` row exists.
+4. Write the result to `reports/audits/DRIVE_INVENTORY_VERIFY.md`: one line per mismatch
+   (report value vs CSV value vs map value), or "0 mismatches" with the row count checked.
+
+Stop condition: that file exists, every mismatch is listed with the CSV value, log line written.
+Until the trigger commit exists there is nothing to verify — stay STAGED, do not guess.
+
+---
+
 ## Your lane in one line
 You move **already-collected** public papers through the page-1 gate into the student tree, one small gated set at a time. You do not bulk-harvest.
 

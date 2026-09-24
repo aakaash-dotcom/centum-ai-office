@@ -296,7 +296,7 @@ At the end of every working day the Manager writes `reports/eod/YYYY-MM-DD.md` �
 5. **Queue status** — how many tasks in queue/active/review/done.
 6. **Tomorrow's first action** — one concrete next step.
 
-EOD reports are **evidence-only** — no narrative padding, no predictions. If nothing shipped, section 1 says "nothing shipped" and that is the report. Agent-10 (AUDIT) reads each EOD and verifies every claim against Drive + the ledgers before the next shift starts.
+EOD reports are **evidence-only** — no narrative padding, no predictions. **No placeholder rows, no sample numbers, no "approximately", no "~".** Every number is a measured value with its source (file path, command output or commit id); a value nobody measured is written as "not measured". If nothing shipped, section 1 says "nothing shipped" and that is the report. Agent-10 (AUDIT) reads each EOD and verifies every claim against Drive + the ledgers before the next shift starts.
 
 ## 20. Standing order for every agent — proper AND faster (baked into every start prompt)
 

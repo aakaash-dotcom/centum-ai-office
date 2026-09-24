@@ -8,7 +8,8 @@ monkey-patching drive_call.call(). Asserts:
     - one level down is walked for every top-level folder
     - no blind depth beyond the known-id pass: folders outside the
       DEEP_EXCEPTIONS set are NOT opened to depth 2
-    - Question Papers/ is NEVER recursed deeper (list-once rule)
+    - Question Papers/ is listed exactly once AND each immediate child
+      (10th, 12th) exactly once; grandchildren are NEVER opened
     - suspicion flags fire when they should
     - CSV columns are exactly what §5 specifies
     - report has all required sections
@@ -43,9 +44,10 @@ import drive_inventory  # noqa: E402
 #       TN/
 #         10th/
 #           Science/
-#     Question Papers/         -> listed once, NEVER recursed
-#       10th/
-#       12th/
+#     Question Papers/         -> listed once
+#       10th/                  -> listed once (immediate child)
+#         Annual/              -> grandchild: NEVER opened
+#       12th/                  -> listed once (immediate child)
 #     Other/                   -> level1 only, NO depth 2
 #       inside-should-not-walk/
 #     marketing-plan.pdf       -> flagged foreign-brand? no, clean name
@@ -90,7 +92,10 @@ FAKE: dict[str, dict] = {
         "folders": [{"id": "d-qp-10", "name": "10th"}, {"id": "d-qp-12", "name": "12th"}],
         # if the walker ever descends here it violates the list-once rule
     },
-    "d-qp-10": {"files": [{"id": "f-leak", "name": "leak.pdf", "size": "1"}], "folders": []},
+    "d-qp-10": {"files": [{"id": "f-qp10", "name": "10_index.pdf", "size": "1"}],
+                "folders": [{"id": "d-qp-10-annual", "name": "Annual"}]},
+    # grandchild of Question Papers/: opening it violates the no-tree rule
+    "d-qp-10-annual": {"files": [{"id": "f-leak", "name": "leak.pdf", "size": "1"}], "folders": []},
     "d-qp-12": {"files": [], "folders": []},
     "d-other": {
         "files": [],
@@ -103,7 +108,11 @@ FAKE: dict[str, dict] = {
 }
 
 
+LIST_CALLS: list = []
+
+
 def _fake_call(action: str, path: str, extra=None):
+    LIST_CALLS.append((action, path))
     if action == "info":
         key = path
         rec = FAKE.get(key, {"id": key, "name": key})
@@ -172,13 +181,26 @@ class InventorySelfTests(unittest.TestCase):
         for top in ("StudyHub", "Question Papers", "Other"):
             self.assertIn(top, paths, f"top-level folder {top} was not listed")
 
-    def test_question_papers_never_recursed(self):
+    def test_question_papers_listed_once_with_children_once(self):
+        LIST_CALLS.clear()
         w = self._walk(mode="level1", budget=200)
-        paths = {f["path"] for f in w.folders}
-        self.assertNotIn("Question Papers/10th", paths,
-                         "Question Papers must NOT be recursed into")
-        self.assertNotIn("Question Papers/12th", paths,
-                         "Question Papers must NOT be recursed into")
+        paths = [f["path"] for f in w.folders]
+        self.assertEqual(paths.count("Question Papers"), 1, "Question Papers/ must be listed exactly once")
+        self.assertEqual(paths.count("Question Papers/10th"), 1, "Question Papers/10th must be listed exactly once")
+        self.assertEqual(paths.count("Question Papers/12th"), 1, "Question Papers/12th must be listed exactly once")
+        lists = [p for a, p in LIST_CALLS if a == "list"]
+        for fid in ("d-qp-10", "d-qp-12"):
+            self.assertEqual(lists.count(fid), 1, f"{fid} must be listed by id exactly once, got {lists.count(fid)}")
+
+    def test_question_papers_no_grandchildren(self):
+        LIST_CALLS.clear()
+        w = self._walk(mode="level1", budget=200)
+        deep = [f["path"] for f in w.folders
+                if f["path"].startswith("Question Papers/") and f["path"].count("/") >= 2]
+        self.assertEqual(deep, [], f"grandchildren of Question Papers must never be opened: {deep}")
+        self.assertNotIn("d-qp-10-annual", [p for a, p in LIST_CALLS if a == "list"],
+                         "Question Papers/10th/Annual was opened - that is a tree walk")
+        self.assertNotIn("f-leak", w.map, "a grandchild's file leaked into drive_map")
 
     def test_no_blind_depth_beyond_exceptions(self):
         w = self._walk(mode="level1", budget=200)
