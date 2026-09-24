@@ -14,13 +14,18 @@ monkey-patching drive_call.call(). Asserts:
     - CSV columns are exactly what §5 specifies
     - report has all required sections
     - budget is respected (stops when it hits zero, names what it skipped)
+    - legacy drive-map metadata/nulls are ignored while real path → id pairs are verified
+    - failed listings create no rows/report; partial failures write successes and exit 4
+    - empty Apps Script bodies report the HTTP status and deployment checks
 
 Run:     python3 tools/drive_inventory_selftest.py
 Output:  prints ALL CHECKS PASSED and exits 0, or raises AssertionError.
 """
 from __future__ import annotations
 
+import contextlib
 import csv
+import io
 import json
 import os
 import sys
@@ -200,7 +205,7 @@ class InventorySelfTests(unittest.TestCase):
         self.assertEqual(deep, [], f"grandchildren of Question Papers must never be opened: {deep}")
         self.assertNotIn("d-qp-10-annual", [p for a, p in LIST_CALLS if a == "list"],
                          "Question Papers/10th/Annual was opened - that is a tree walk")
-        self.assertNotIn("f-leak", w.map, "a grandchild's file leaked into drive_map")
+        self.assertNotIn("f-leak", w.map.values(), "a file id leaked into the folder map")
 
     def test_no_blind_depth_beyond_exceptions(self):
         w = self._walk(mode="level1", budget=200)
@@ -253,11 +258,139 @@ class InventorySelfTests(unittest.TestCase):
         md = (self.reports / "DRIVE_INVENTORY.md").read_text(encoding="utf-8")
         self.assertIn("skipped", md.lower())
 
+    def test_drive_map_filters_legacy_values_and_reverifies_real_ids(self):
+        drive_map = self.ledgers / "drive_map.json"
+        drive_map.write_text(json.dumps({
+            "_note": "legacy metadata",
+            "_updated": "legacy timestamp",
+            "folders": {
+                "_note": "not a folder path",
+                "_updated": "not a folder path",
+                "StudyHub/prior": "d-prior",
+                "null-id": None,
+                "empty-id": "",
+                "non-string-id": 27,
+            },
+        }), encoding="utf-8")
+        LIST_CALLS.clear()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            w = drive_inventory.walk(mode="level1", budget=20)
+        self.assertEqual(w.prior_folders, {"StudyHub/prior": "d-prior"})
+        self.assertIn(("info", "d-prior"), LIST_CALLS,
+                      "a valid path → id string from drive_map must be re-verified")
+        self.assertNotIn(("info", "not a folder path"), LIST_CALLS)
+        self.assertNotIn(("info", ""), LIST_CALLS)
+
+        # The write side applies the same strict filter to the folders object.
+        w.map.update({
+            "valid/path": "d-valid",
+            "_note": "not a path",
+            "null-id": None,
+            "empty-id": "",
+            "non-string-id": 27,
+            27: "non-string-path",
+        })
+        drive_inventory.write_map(w)
+        saved = json.loads(drive_map.read_text(encoding="utf-8"))
+        self.assertEqual(saved["folders"]["valid/path"], "d-valid")
+        self.assertNotIn("_note", saved["folders"])
+        self.assertNotIn("null-id", saved["folders"])
+        self.assertNotIn("empty-id", saved["folders"])
+        self.assertNotIn("non-string-id", saved["folders"])
+        self.assertTrue(all(isinstance(k, str) and isinstance(v, str) and v.strip()
+                            for k, v in saved["folders"].items()))
+
+    def test_malformed_drive_map_falls_back_to_empty(self):
+        (self.ledgers / "drive_map.json").write_text("{not json", encoding="utf-8")
+        walker = drive_inventory.Walker(mode="root", budget=1)
+        self.assertEqual(walker.map, {})
+        self.assertEqual(walker.prior_folders, {})
+
+    def test_empty_list_is_a_successfully_listed_empty_folder(self):
+        with mock.patch.object(drive_call, "call", return_value=[]):
+            walker = drive_inventory.Walker(mode="root", budget=1)
+            info = walker.list_folder("empty-folder")
+        self.assertIsNotNone(info)
+        self.assertEqual(info["files"], 0)
+        self.assertEqual(info["subfolders"], 0)
+        self.assertEqual(len(walker.folders), 1)
+        self.assertEqual(walker.errors, [])
+
+    def test_dead_client_writes_no_rows_or_report(self):
+        def dead_call(action, path, extra=None):
+            raise drive_call.DriveError("client offline")
+
+        stderr = io.StringIO()
+        with mock.patch.object(drive_call, "call", side_effect=dead_call):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                code = drive_inventory.main(["--mode", "root", "--budget", "1"])
+        self.assertNotEqual(code, 0)
+        self.assertIn("client offline", stderr.getvalue())
+        self.assertFalse((self.ledgers / "drive_inventory.csv").exists(),
+                         "a failed run must not leave CSV rows or a header")
+        self.assertFalse((self.ledgers / "drive_map.json").exists())
+        self.assertFalse((self.reports / "DRIVE_INVENTORY.md").exists(),
+                         "a failed run must not leave a 0-folder report")
+
+    def test_partial_failure_writes_successes_and_exits_four(self):
+        def partial_call(action, path, extra=None):
+            if action == "list" and path == "d-study":
+                LIST_CALLS.append((action, path))
+                raise drive_call.DriveError("one folder offline")
+            return _fake_call(action, path, extra)
+
+        stderr = io.StringIO()
+        with mock.patch.object(drive_call, "call", side_effect=partial_call):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr):
+                code = drive_inventory.main(["--mode", "level1", "--budget", "30"])
+        self.assertEqual(code, 4)
+        self.assertIn("one folder offline", stderr.getvalue())
+        self.assertTrue((self.reports / "DRIVE_INVENTORY.md").exists())
+        with (self.ledgers / "drive_inventory.csv").open(encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+        self.assertTrue(rows, "successful folder listings should be written")
+        self.assertFalse(any(row["folder_path"] == "StudyHub" for row in rows),
+                         "a failed call must not become a zero-file folder row")
+
+
+class DriveCallSelfTests(unittest.TestCase):
+    def test_empty_body_names_http_status_and_common_causes(self):
+        class EmptyResponse:
+            status = 403
+            headers = {}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+            def read(self):
+                return b""
+
+        class EmptyOpener:
+            def open(self, request, timeout=None):
+                return EmptyResponse()
+
+        with mock.patch.object(drive_call.urllib.request, "build_opener", return_value=EmptyOpener()):
+            with self.assertRaises(drive_call.DriveError) as caught:
+                drive_call._post_once("http://example.test", b"{}", "")
+        message = str(caught.exception)
+        self.assertIn("HTTP 403", message)
+        self.assertIn('Who has access > Anyone > Deploy', message)
+        self.assertIn("/dev URL", message)
+        self.assertIn("/exec URL", message)
+        self.assertIn("check Executions", message)
+
 
 def main():
     # Run tests, print a friendly summary.
     runner = unittest.TextTestRunner(verbosity=0)
-    suite = unittest.defaultTestLoader.loadTestsFromTestCase(InventorySelfTests)
+    loader = unittest.defaultTestLoader
+    suite = unittest.TestSuite([
+        loader.loadTestsFromTestCase(InventorySelfTests),
+        loader.loadTestsFromTestCase(DriveCallSelfTests),
+    ])
     res = runner.run(suite)
     if res.wasSuccessful():
         print("ALL CHECKS PASSED")

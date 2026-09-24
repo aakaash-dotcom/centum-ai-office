@@ -103,6 +103,15 @@ def _post_once(url: str, body: bytes, secret: str) -> Dict[str, Any]:
     except Exception:
         raise DriveError("non-utf8 response from Apps Script")
 
+    if not text.strip():
+        raise DriveError(
+            f"Apps Script returned an empty body (HTTP {status}). Usual causes: "
+            '(a) the deployment is not shared with "Anyone" '
+            '(Apps Script > Deploy > Manage deployments > edit > Who has access > Anyone > Deploy); '
+            '(b) a /dev URL is being used instead of the deployed /exec URL; '
+            '(c) the script threw before answering (check Executions in the Apps Script editor).'
+        )
+
     try:
         data = json.loads(text)
     except json.JSONDecodeError:

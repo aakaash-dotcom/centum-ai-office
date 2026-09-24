@@ -34,7 +34,7 @@ concurrency:
 
 jobs:
   rebuild:
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore: rebuild office app data') }}
+    if: "${{ !contains(github.event.head_commit.message || '', 'chore: rebuild office app data') }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
