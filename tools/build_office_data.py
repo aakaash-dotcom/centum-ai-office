@@ -495,10 +495,12 @@ def build() -> dict:
                     "handovers": handover_count(agent_dir / "handover.md"),
                     "recent_log_count": recent_log_count(log, 60),
                     "task_note": slot.get("current_task_note", ""),
-                    "start_prompt": make_prompt(slot_id, task) if task else make_standby_prompt(slot_id),
+                    # FIX C: standby desks share ONE template (DATA.standby_prompt, "{slot}"
+                    # placeholder) expanded by the app - keeps the payload under 20 KB.
+                    "start_prompt": make_prompt(slot_id, task) if task else "",
                     "has_task": bool(task),
-                    "current_html": current["html"],
-                    "log": log,
+                    # FIX C: no current.md HTML and no log dumps in the app payload.
+                    # They live in agents/<id>/current.md and agents/<id>/log.md.
                 }
             )
             visual = compute_visual(
@@ -585,7 +587,7 @@ def build() -> dict:
             "stats": board.get("stats", {}),
             "shelves": board.get("shelves", {}),
             "parked": board.get("parked", []),
-            "existing_work": board.get("existing_work_summary", {}),
+            # existing_work_summary stays in board.json (FIX C: office only, no knowledge bodies)
         },
         "manager_desk": {
             "active": bool(power["minutes"] is not None and power["minutes"] <= int(vcfg.get("live_minutes", 20))),
@@ -604,7 +606,10 @@ def build() -> dict:
                                for t in (a.get("tasks") or [])[:5]]}
                     for a in archive],
         "slots": all_slots,
-        "tasks": tasks,
+        "standby_prompt": make_standby_prompt("{slot}"),
+        # FIX C: tasks carry id/title/lane/status/prompt, never the task markdown.
+        "tasks": {b: [{k: v for k, v in t.items() if k not in ("html", "markdown")} for t in items]
+                  for b, items in tasks.items()},
         "counts": {
             "queue": len(tasks["queue"]),
             "active": len(tasks["active"]),
@@ -622,7 +627,11 @@ def build() -> dict:
         # Reports and the manifest live in the repo (reports/, ledgers/).
         # We only carry an index here so the UI can show that reports exist.
         "reports_index": [{"date": r.get("date"), "title": r.get("title")} for r in reports],
-        "owner_actions": actions,
+        # FIX C: owner actions = number + title + copyable prompts only; the body
+        # stays in the daily report (reports_path points to it).
+        "owner_actions": [{"number": a.get("number", ""), "title": a.get("title", ""),
+                           "prompts": a.get("prompts", [])} for a in actions],
+        "owner_actions_path": reports[0]["path"] if reports else "",
     }
 
 

@@ -293,17 +293,30 @@ setTimeout(() => {
   console.log("\nData, prompts and safety\n");
 
   check("app data only holds desks, tasks, prompts (no reports / chat / logs payloads)", () => {
-    // reports/chats/logs must not be embedded into the 11 KB-ish office payload.
+    // reports/chats/logs must not be embedded into the office payload (limit 20 KB).
     // They live in the repo. We check by size and by absence of large report buckets.
     const blob = JSON.stringify(DATA);
-    if (blob.length > 80000) throw new Error("office.json is too large (" + blob.length + " bytes) — app should hold only the office (~50 KB: desks, tasks, prompts, actions), not full reports/chat/logs");
+    const bytes = fs.statSync(path.join(APP, "data", "office.json")).size;
+    if (bytes > 20480) throw new Error("office.json is too large (" + bytes + " bytes) — must be under 20 KB: desks, tasks, prompts, statuses only");
     if (DATA.reports && Array.isArray(DATA.reports) && DATA.reports.length > 0) {
       throw new Error("app payload should not embed reports — they live in the repo");
     }
+    DATA.slots.forEach((s) => {
+      if (s.current_html !== undefined) throw new Error(s.id + " carries current.md HTML");
+      if (s.log !== undefined) throw new Error(s.id + " carries a log dump");
+    });
+    (DATA.owner_actions || []).forEach((a) => {
+      if (a.html !== undefined) throw new Error("owner action carries a body: " + a.title);
+    });
+    Object.keys(DATA.tasks || {}).forEach((b) => (DATA.tasks[b] || []).forEach((t) => {
+      if (t.html !== undefined || t.markdown !== undefined) throw new Error(t.id + " carries task markdown");
+    }));
   });
 
   check("every slot has a paste prompt referencing OFFICE.md", () => {
-    DATA.slots.forEach((s) => {
+    DATA.slots.forEach((s0) => {
+      const s = Object.assign({}, s0);
+      if (!s.start_prompt && DATA.standby_prompt) s.start_prompt = DATA.standby_prompt.split("{slot}").join(s.id);
       if (!s.start_prompt || s.start_prompt.length < 200) throw new Error(s.id + " prompt missing/short");
       if (s.start_prompt.indexOf("OFFICE.md") < 0) throw new Error(s.id + " prompt does not reference OFFICE.md");
     });

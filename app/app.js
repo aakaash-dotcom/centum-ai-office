@@ -16,6 +16,15 @@
 
   var REPO = "https://github.com/aakaash-dotcom/centum-ai-office";
   var DATA = null;
+  /* Standby desks share one prompt template ("{slot}" placeholder) to keep office.json small. */
+  function expandPrompts(d) {
+    if (d && d.standby_prompt && d.slots) {
+      d.slots.forEach(function (s) {
+        if (!s.start_prompt) s.start_prompt = d.standby_prompt.split("{slot}").join(s.id);
+      });
+    }
+    return d;
+  }
   var BUILD = window.__CENTUM_BUILD || "v4";
   var state = { tab: "office", q: "", demo: false };
 
@@ -148,15 +157,13 @@
         esc((slot.visual && slot.visual.label) || slot.status) + "</span></div>" +
         "<div class='muted'>" + esc(slot.role || "") + "</div>" +
       "</div>";
-    if (slot.current_html) inner.appendChild(el("div", "md", slot.current_html));
     var logCard = el("div", "card");
-    logCard.appendChild(el("div", "section-title", "Recent log"));
-    (slot.log || []).slice(-5).reverse().forEach(function (e) {
-      var row = el("div", "log-row");
-      row.innerHTML = "<span class='tiny muted'>" + esc(e.age_label) + "</span> " +
-        "<span class='mono'>" + esc(e.raw || "") + "</span>";
-      logCard.appendChild(row);
-    });
+    logCard.appendChild(el("div", "section-title", "Last log line"));
+    var row = el("div", "log-row");
+    row.innerHTML = "<span class='tiny muted'>" + esc(slot.last_log_age_label || "") + "</span> " +
+      "<span class='mono'>" + esc(slot.last_log_line || "(none yet)") + "</span>";
+    logCard.appendChild(row);
+    logCard.appendChild(el("div", "tiny muted", "Full status and log live in the repo: agents/" + esc(slot.id) + "/current.md and log.md"));
     inner.appendChild(logCard);
 
     if (slot.start_prompt) {
@@ -406,7 +413,7 @@
 
   function boot() {
     return loadData().then(function (data) {
-      DATA = data;
+      DATA = expandPrompts(data);
       DATA.tasks = flattenTasks(data.tasks);
       // initial paint
       render();
