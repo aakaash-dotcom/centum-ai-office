@@ -8,8 +8,9 @@ Walks:
     Question Papers/ is listed ONCE and each IMMEDIATE child (10th, 12th, ...) is
     listed ONCE. Never a tree, never grandchildren (the full tree times out).
 
-Then re-verifies every id already present in ledgers/drive_map.json BY ID,
-labelling each with its path so stale entries are obvious.
+Then re-verifies every path → folder-id pair already present in
+ledgers/drive_map.json BY ID, labelling each with its path so stale entries
+are obvious.
 
 Honours a hard --budget of API calls; names what it skipped when the budget
 runs out. Writes three deliverables:
@@ -18,7 +19,7 @@ runs out. Writes three deliverables:
                                    twenty-files table, "what we do not know yet"
     ledgers/drive_inventory.csv    timestamp,folder_path,folder_id,files,
                                    subfolders,size_note,patterns,flags,listed_by
-    ledgers/drive_map.json         id → {name, path, kind, parents, verified_at, …}
+    ledgers/drive_map.json         folder path → folder id
 
 Suspicion flags:
     check-subject        — pdf present, nobody opened it (no views / no recent activity)
@@ -50,6 +51,19 @@ REPORT_MD = ROOT / "reports" / "DRIVE_INVENTORY.md"
 INVENTORY_CSV = ROOT / "ledgers" / "drive_inventory.csv"
 DRIVE_MAP = ROOT / "ledgers" / "drive_map.json"
 
+
+def valid_folder_pairs(value: Any) -> Dict[str, str]:
+    """Keep only real folder-path → non-empty string-id pairs."""
+    if not isinstance(value, dict):
+        return {}
+    return {
+        path: folder_id
+        for path, folder_id in value.items()
+        if isinstance(path, str) and path.strip() and not path.startswith("_")
+        and isinstance(folder_id, str) and folder_id.strip()
+    }
+
+
 FOREIGN_BRAND_TOKENS = [
     "sura", "don ", "don publication", "wts", "surya", "namma kalvi",
     "padasalai", "telegram", "whatsapp",
@@ -67,41 +81,63 @@ class Walker:
         self.budget_left = budget
         self.calls = 0
         self.folders: List[Dict[str, Any]] = []  # {path, id, files, subfolders, size_note, patterns, flags, listed_by, entries}
-        self.map: Dict[str, Dict[str, Any]] = {}
+        self.map: Dict[str, str] = {}
+        self.prior_folders: Dict[str, str] = {}
+        self.errors: List[str] = []
         self.skipped: List[str] = []
         self.started_at = dt.datetime.now(dt.timezone.utc)
-        # load prior map so we keep id → path history when verifying
-        if DRIVE_MAP.exists():
-            try:
-                prior = json.loads(DRIVE_MAP.read_text(encoding="utf-8"))
-                if isinstance(prior, dict):
-                    self.map = prior
-            except Exception:
-                pass
+        # Load only real path → id strings for the verification pass. Legacy
+        # metadata keys and null/empty folder ids are not Drive folders.
+        try:
+            prior = json.loads(DRIVE_MAP.read_text(encoding="utf-8")) if DRIVE_MAP.exists() else {}
+        except Exception:
+            prior = {}
+        if not isinstance(prior, dict):
+            prior = {}
+        self.map = valid_folder_pairs(prior.get("folders", {}))
+        self.prior_folders = dict(self.map)
+
+    def _record_error(self, action: str, path: str, message: str) -> None:
+        error = f"{action}({path}) failed: {message}"
+        self.errors.append(error)
+        print(f"  ! {error}", file=sys.stderr)
 
     # ------- api accounting
-    def api(self, action: str, path: str, **extra: Any) -> Dict[str, Any]:
+    def api(self, action: str, path: str, **extra: Any) -> Optional[Dict[str, Any]]:
         if self.budget_left <= 0:
             raise BudgetExhausted(f"budget exhausted before {action}({path!r})")
         self.budget_left -= 1
         self.calls += 1
         try:
-            return drive_call.call(action, path, extra=extra or None)
+            resp = drive_call.call(action, path, extra=extra or None)
         except drive_call.DriveError as e:
-            print(f"  ! {action}({path}) failed: {e}", file=sys.stderr)
-            return {"error": str(e), "files": [], "folders": []}
+            self._record_error(action, path, str(e))
+            return None
+        if resp is None:
+            self._record_error(action, path, "returned no response")
+            return None
+        if isinstance(resp, list) and not resp and action == "list":
+            # An empty list is a successful listing of an empty folder.
+            return {"files": [], "folders": []}
+        if not isinstance(resp, dict):
+            self._record_error(action, path, "returned an unexpected response")
+            return None
+        if resp.get("error") or resp.get("ok") is False:
+            message = resp.get("error") or resp.get("message") or "request failed"
+            self._record_error(action, path, str(message))
+            return None
+        return resp
 
     # ------- list helper that builds flags
     def list_folder(self, path: str, folder_id: Optional[str] = None,
-                    listed_by: str = "path") -> Dict[str, Any]:
+                    listed_by: str = "path") -> Optional[Dict[str, Any]]:
         target = folder_id if folder_id else path
         label = path or "<root>"
         print(f"  - list {label}  (budget left: {self.budget_left})")
         resp = self.api("list", target)
-        if resp.get("error"):
-            self.skipped.append(f"{label} (error: {resp['error']})")
-            return self._empty_folder(path, folder_id, listed_by,
-                                       note=f"error: {resp['error']}")
+        if resp is None:
+            self.skipped.append(f"{label} (listing failed)")
+            return None
 
         entries = drive_call.entries_of(resp)
         files = [e for e in entries if not e.get("is_folder")]
@@ -142,27 +178,24 @@ class Walker:
         if not files and not subs:
             size_note = "empty"
 
-        # update drive_map
-        for e in entries:
-            eid = e.get("id")
-            if not eid:
+        # Keep only folder path → string-id pairs, never file records.
+        listed_folder_id = folder_id or resp.get("folder_id") or resp.get("id")
+        if (isinstance(listed_folder_id, str) and listed_folder_id.strip()
+                and label.strip() and not label.startswith("_")):
+            self.map[label] = listed_folder_id
+        for sub in subs:
+            sub_name = sub.get("name")
+            sub_id = sub.get("id")
+            if not isinstance(sub_name, str) or not sub_name.strip():
                 continue
-            rec = dict(self.map.get(eid, {}))
-            rec.update({
-                "id": eid,
-                "name": e.get("name") or rec.get("name"),
-                "kind": "folder" if e.get("is_folder") else "file",
-                "path": f"{path.rstrip('/')}/{e.get('name', '')}" if path else (e.get("name") or ""),
-                "parents": e.get("parents") or rec.get("parents", []),
-                "verified_at": self.started_at.isoformat(),
-                "mimeType": e.get("mimeType") or rec.get("mimeType"),
-                "size": e.get("size") or rec.get("size"),
-            })
-            self.map[eid] = rec
+            sub_path = f"{path.rstrip('/')}/{sub_name}" if path else sub_name
+            if (isinstance(sub_id, str) and sub_id.strip()
+                    and sub_path.strip() and not sub_path.startswith("_")):
+                self.map[sub_path] = sub_id
 
         info = {
             "path": label,
-            "id": folder_id or resp.get("folder_id") or resp.get("id") or "",
+            "id": listed_folder_id if isinstance(listed_folder_id, str) else "",
             "files": len(files),
             "subfolders": len(subs),
             "size_note": size_note,
@@ -174,19 +207,6 @@ class Walker:
         }
         self.folders.append(info)
         return info
-
-    @staticmethod
-    def _empty_folder(path: str, folder_id: Optional[str], listed_by: str,
-                      note: str = "") -> Dict[str, Any]:
-        return {
-            "path": path or "<root>",
-            "id": folder_id or "",
-            "files": 0, "subfolders": 0,
-            "size_note": note or "unreachable",
-            "patterns": [], "flags": [],
-            "listed_by": listed_by,
-            "entries": [], "sub_entries": [],
-        }
 
 
 class BudgetExhausted(RuntimeError):
@@ -208,7 +228,7 @@ def walk(mode: str, budget: int) -> Walker:
     print(f"Drive inventory — mode={mode} budget={budget}")
     try:
         root = w.list_folder("", listed_by="root")
-        if mode == "root":
+        if root is None or mode == "root":
             return w
         # level1: one level down from root
         level1_subs = list(root["sub_entries"])
@@ -223,6 +243,8 @@ def walk(mode: str, budget: int) -> Walker:
                 w.skipped.append(f"level1/{name} ({be})")
                 print(f"  · budget exhausted at {name}")
                 return w
+            if info is None:
+                continue
             # depth 2 (one level INSIDE the top-level folder, i.e. root depth 2)
             # is allowed for StudyHub/ and Question Papers/. For Question Papers/
             # each immediate child (10th, 12th, ...) is listed exactly once and
@@ -248,22 +270,17 @@ def walk(mode: str, budget: int) -> Walker:
         w.skipped.append(str(be))
         print(f"  · budget exhausted: {be}")
 
-    # verification pass: every id already in drive_map gets listed BY ID to
-    # confirm it still exists and label its path.
+    # Verification pass: re-check only the valid path → id pairs read from
+    # drive_map.json; newly observed folders were already listed this run.
     print("verifying known ids …")
-    prior_ids = [k for k in list(w.map.keys())
-                 if not w.map[k].get("verified_at") or w.map[k]["verified_at"] < w.started_at.isoformat()]
-    for fid in prior_ids:
-        rec = w.map[fid]
+    for folder_path, fid in w.prior_folders.items():
         if w.budget_left <= 0:
-            w.skipped.append(f"verify {rec.get('path') or fid} (budget exhausted)")
+            w.skipped.append(f"verify {folder_path} (budget exhausted)")
             break
         try:
-            resp = w.api("info", fid)
-            if not resp.get("error"):
-                rec["verified_at"] = w.started_at.isoformat()
+            w.api("info", fid)
         except BudgetExhausted:
-            w.skipped.append(f"verify {rec.get('path') or fid} (budget exhausted)")
+            w.skipped.append(f"verify {folder_path} (budget exhausted)")
             break
 
     return w
@@ -297,8 +314,14 @@ def write_csv(w: Walker) -> None:
 
 def write_map(w: Walker) -> None:
     DRIVE_MAP.parent.mkdir(parents=True, exist_ok=True)
+    folders = valid_folder_pairs(w.map)
+    payload = {
+        "_note": "Folder path to Drive folder id.",
+        "_updated": w.started_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "folders": folders,
+    }
     DRIVE_MAP.write_text(
-        json.dumps(w.map, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
+        json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
@@ -402,6 +425,11 @@ def main(argv: List[str] | None = None) -> int:
             return 2
 
     w = walk(args.mode, args.budget)
+    if not w.folders:
+        if not w.errors:
+            print("ERROR: no folders could be listed.", file=sys.stderr)
+        return 3
+
     write_csv(w)
     write_map(w)
     write_report(w)
@@ -410,7 +438,7 @@ def main(argv: List[str] | None = None) -> int:
     print(f"Wrote: {REPORT_MD}")
     print(f"       {INVENTORY_CSV}")
     print(f"       {DRIVE_MAP}")
-    return 0
+    return 4 if w.errors else 0
 
 
 if __name__ == "__main__":
