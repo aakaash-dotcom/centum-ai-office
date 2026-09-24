@@ -1,0 +1,82 @@
+# Drive inventory — TASK-101, run where there is internet: a GitHub runner.
+#
+# Why here: agent sessions in this environment have NO outbound network (TLS to every
+# host is cut), so bridge.py cannot run inside a session. Runners have internet, and
+# the Apps Script URL + secret sit in GitHub's ENCRYPTED repo secrets - safer than any
+# chat. See drive/README.md and OFFICE.md §21.
+#
+# The owner starts it: Actions tab -> "Drive inventory" -> Run workflow.
+# It commits the three deliverables back to the branch it ran on. Read-only on Drive.
+name: Drive inventory
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "root = only the top level (cheap) · level1 = root + one level down"
+        type: choice
+        options: [level1, root]
+        default: level1
+      budget:
+        description: "hard cap on Drive API calls"
+        type: string
+        default: "200"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: drive-inventory
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the secrets exist (never prints them)
+        env:
+          URL: ${{ secrets.APPS_SCRIPT_URL }}
+          SECRET: ${{ secrets.APPS_SCRIPT_SECRET }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$SECRET" ]; then
+            echo "::error::APPS_SCRIPT_URL and/or APPS_SCRIPT_SECRET are missing."
+            echo "Add them in Settings > Secrets and variables > Actions, then run this again."
+            exit 1
+          fi
+          echo "Secrets present. URL host: $(printf '%s' "$URL" | cut -d/ -f3) (value never printed)."
+
+      - name: Walk Drive (read-only) and write the deliverables
+        env:
+          APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
+          APPS_SCRIPT_SECRET: ${{ secrets.APPS_SCRIPT_SECRET }}
+        run: |
+          set -o pipefail
+          python3 tools/drive_inventory.py --mode "${{ inputs.mode }}" --budget "${{ inputs.budget }}" | tee /tmp/inv.log
+
+      - name: Commit the results back
+        run: |
+          git config user.name  "centum-drive-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add reports/DRIVE_INVENTORY.md ledgers/drive_inventory.csv ledgers/drive_map.json
+          if git diff --cached --quiet; then
+            echo "Nothing changed (no results written)."
+          else
+            git commit -m "Drive inventory (read-only) — $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Drive inventory"
+            echo ""
+            echo '```'
+            tail -n 25 /tmp/inv.log 2>/dev/null || echo "no log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -274,3 +274,53 @@ To open a locked room the Manager must, in order:
 4. Add the stations to `board.json` and rebuild the app so the new room lights up.
 
 A locked room never consumes a station in the Harvest room, and no department opens because "there was time".
+
+## 18. The flat office (v2 floor plan)
+
+The office is **one open floor** — no departments, no rooms, no locked corridor.
+
+- Two long tables (A and B) seat five agents each. An 11th agent adds a third table (C); a 16th adds a fourth (D); and so on.
+- The **manager room sits at the bottom** of the floor with the manager desk, a "what the manager is doing" sign, the power panel, and the door.
+- Adding an agent is one block in `office.config.json` (`id`, `lane`, `role`). The build creates `agents/<id>/`, the agent takes the next free seat, asleep, with a start prompt.
+- **Honest lights**: a desk says "working" only with **work evidence** (a log line about the task / a file produced / concrete progress). Heartbeats and "I'm here" pings show "at the desk" (QUIET), not working.
+- Light thresholds are recomputed **in the browser** from raw timestamps (LIVE ≤ 20 min, QUIET ≤ 90 min, CLOSED beyond). A quiet desk dims without a rebuild — no redeploy needed.
+
+## 19. End-of-day reports
+
+At the end of every working day the Manager writes `reports/eod/YYYY-MM-DD.md` — six short sections, evidence only:
+
+1. **What shipped today** — files that reached Drive (links) and passed the gate.
+2. **What was blocked** — each blocker with what's needed.
+3. **What was verified** — AUDIT verdicts.
+4. **Files produced vs files promised** — one count each.
+5. **Queue status** — how many tasks in queue/active/review/done.
+6. **Tomorrow's first action** — one concrete next step.
+
+EOD reports are **evidence-only** — no narrative padding, no predictions. If nothing shipped, section 1 says "nothing shipped" and that is the report. Agent-10 (AUDIT) reads each EOD and verifies every claim against Drive + the ledgers before the next shift starts.
+
+## 20. Standing order for every agent — proper AND faster (baked into every start prompt)
+
+Every agent, every task, every run follows this:
+
+1. **Read the standing brief first** — `OFFICE.md`, your `current.md`, the last 5 lines of your `log.md`, your task file. Start nothing until you know where the last occupant stopped.
+2. **Resume, do not restart.** The first action on any "continue" is to `list` the target Drive folder and confirm what is already there. Re-uploading a verified file is a failure.
+3. **One job at a time.** One stop condition Ravi can open on his phone in 30 seconds.
+4. **Evidence for every claim.** "Done" means file on Drive + gate PASS + link in log.md + stop condition met. "In my workspace" is not done.
+5. **Log every action.** START, each upload/batch, and STOP. A silent agent is a stopped agent.
+6. **Block cleanly.** Use the BLOCKER format in §9 and stop. Do not improvise around blockers — that is how wrong-diagram PDFs ship.
+7. **Never delete anything on Drive.** Never. Quarantine, don't delete.
+8. **Freeze-respect.** While the freeze is on, no uploads, no Drive restructure, no renames. Reading and local tooling are fine.
+9. **Ship the smallest useful thing.** One gated file delivered today beats ten planned for tomorrow.
+10. **Stop when the stop condition is met.** Do not add scope. Report, hand over, end.
+
+Proper AND faster means cutting wasted motion (re-reading files, restarting, speculative work) without cutting corners on evidence or the page-1 gate.
+
+## 21. Platform limits — what this environment cannot do
+
+These are hard limits of the Arena sandbox. Do not waste time trying:
+
+- **No session internet.** Outbound TLS from an agent session is cut (every host, every port). `bridge.py`/`drive_upload.py` cannot run inside a session — they run on GitHub Actions runners (see `.github/workflows/drive-*.yml`).
+- **No `.py` / `.zip` chat uploads.** Files pasted into chat are text-only. Binary payloads will not arrive. Deliver scripts via this repo, not chat.
+- **No browser in the session.** There is no Chrome/Firefox to drive. The office app is built with `build_office_data.py` and checked with `tools/smoke_test_app.js` — that smoke test is the browser.
+- **Sessions only run while they run.** When the session ends, all in-memory state and anything outside the repo root is gone. Commit every script to `tools/` and every ledger to `ledgers/`.
+- **A static page cannot know the time.** The app uses timestamps from the built JSON plus `Date.now()` in the browser to recompute desk lights on load. Stale caches are busted with `?v=` in `index.html`.

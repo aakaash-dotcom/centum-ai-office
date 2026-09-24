@@ -1,0 +1,17 @@
+{
+  "name": "centum-ai-office",
+  "version": "0.4.0",
+  "private": true,
+  "description": "CENTUM AI Office — phone control room for Ravi's StudyHub team.",
+  "scripts": {
+    "build": "python3 tools/build_office_data.py && python3 tools/build_standalone.py",
+    "build:data": "python3 tools/build_office_data.py",
+    "build:standalone": "python3 tools/build_standalone.py",
+    "test": "python3 tools/drive_inventory_selftest.py && node tools/smoke_test_app.js",
+    "serve": "python3 tools/serve_office.py",
+    "start": "python3 tools/serve_office.py"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

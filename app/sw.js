@@ -1,10 +1,10 @@
-/* CENTUM AI Office service worker — v3 (network-first)
+/* CENTUM AI Office service worker — v4 (network-first)
    Why v3 exists: v1/v2 served the app SHELL cache-first, so a phone kept an old app.js
    forever while office.json updated — new data on old UI. This version is network-first
    for everything, purges old caches on activate, and reloads open tabs once so the new
    build appears without the owner doing anything.
    Offline is still supported: the last good copy of each asset stays in the cache. */
-var CACHE = "centum-office-v3";
+var CACHE = "centum-office-v4";
 var SHELL = ["./", "index.html", "styles.css", "office.js", "app.js", "manifest.json",
              "icons/icon-192.png", "icons/icon-512.png"];
 
